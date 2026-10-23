@@ -58,42 +58,26 @@ const mapExcelRowToDbFields = (row) => {
 const UserMaster = () => {
   const dispatch = useDispatch();
   const { user } = useSelector((state) => state.auth || {});
-  const { data = [], loading1, error1 } = useSelector((state) => state.user || {});
-
-  const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const token = useSelector((state) => state.auth.token);
+  const { data = [], loading, error } = useSelector((state) => state.user || {});
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingRow, setEditingRow] = useState(null);
   const [formData, setFormData] = useState({});
 
-  // Fetch users function
   const fetchUsers = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      // const response = await api.get('/users/all');
+    if (token) {
       await dispatch(fetchUserDetails());
-      setUsers(data)
-      // if (response.data) {
-      //   setUsers(response.data.data || response.data);
-      // }
-    } catch (err) {
-      console.error('Failed to fetch users:', err);
-      setError('Failed to load user master records. Please check your permissions.');
-    } finally {
-      setLoading(false);
     }
   };
 
   useEffect(() => {
     fetchUsers();
-  }, [dispatch, user?.id]);
+  }, [dispatch, user?.id, token]);
 
   // --- EXCEL EXPORT ---
   const handleExportExcel = () => {
-    const worksheet = XLSX.utils.json_to_sheet(users);
+    const worksheet = XLSX.utils.json_to_sheet(data);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'User_Master');
     XLSX.writeFile(workbook, `User_Master_Report_${new Date().toISOString().slice(0, 10)}.xlsx`);
@@ -240,9 +224,9 @@ const UserMaster = () => {
       </div>
 
       <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', marginBottom: '90px' }}>
-        <UserTable data={users} columns={userColumns} />
+        <UserTable data={data} columns={userColumns} />
         <p style={{ padding: '8px 0', margin: '0', fontFamily: 'Calibri', fontWeight: 'bold', textAlign: 'center' }}>
-          Total Results: {users?.length}
+          Total Results: {data?.length}
         </p>
 
         {/* CRUD Modal */}

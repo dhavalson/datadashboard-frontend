@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './components/Login';
 // import Dashboard from './components/Dashboard';
@@ -34,21 +34,50 @@ function App() {
   const dispatch = useDispatch();
   const token = useSelector((state) => state.auth.token);
   const user = useSelector((state) => state.auth.user);
+  const [isInitializing, setIsInitializing] = useState(true); // 👈 1. Add initialization state
 
-  useEffect(() => {
-    // If user is logged in (has session storage user) but Redux memory token was wiped by a refresh:
-    if (user && !token) {
-      api.post('/auth/refresh')
-        .then((res) => {
-          if (res.data?.token) {
-            dispatch(setToken(res.data.token)); // Restores token to memory seamlessly
-          }
-        })
-        .catch((err) => {
-          console.log('Session expired, please log in again.');
-        });
-    }
-  }, [user, token, dispatch]);
+  // useEffect(() => {
+  //   // If user is logged in (has session storage user) but Redux memory token was wiped by a refresh:
+  //   if (user && !token) {
+  //     api.post('/auth/refresh')
+  //       .then((res) => {
+  //         if (res.data?.token) {
+  //           dispatch(setToken(res.data.token)); // Restores token to memory seamlessly
+  //         }
+  //       })
+  //       .catch((err) => {
+  //         console.log('Session expired, please log in again.');
+  //       });
+  //   }
+  // }, [user, token, dispatch]);
+
+useEffect(() => {
+    const restoreSession = async () => {
+      try {
+        const res = await api.post('/auth/refresh', {}, { withCredentials: true });
+        if (res.data?.success && res.data?.token) {
+          dispatch(setToken(res.data.token));
+        }
+      } catch (error) {
+        console.log('No active session found. Please log in.');
+      } finally {
+        setIsInitializing(false); // 👈 2. Unlock rendering once the check finishes (success or fail)
+      }
+    };
+
+    restoreSession();
+  }, [dispatch]);
+
+  // 👈 3. Pause rendering child components until the token check is done
+  if (isInitializing) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-gray-900 text-white">
+        <div className="text-center">
+          <p className="text-lg font-semibold">Loading application...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <Router>

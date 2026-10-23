@@ -40,14 +40,13 @@ api.interceptors.response.use(
     // Check if error is due to an expired/invalid token (403 or 401) and we haven't retried yet
     if (
       (error.response?.status === 403 || error.response?.status === 401) &&
-      !originalRequest._retry
-    ) {
+      !originalRequest._retry) {
       originalRequest._retry = true; // Prevent infinite loops
 
       try {
         // Call the refresh endpoint (browser automatically attaches the refreshToken HttpOnly cookie)
         // const res = await axios.post('https://datadashboard-backend.onrender.com/api',
-        const res = await axios.post(`${API_URL}/auth/refresh`,
+        const res = await api.post(`/auth/refresh`,
           // 'http://localhost:5000/api/auth/refresh',
           
           {},
@@ -68,8 +67,8 @@ api.interceptors.response.use(
         console.error('Refresh token expired or invalid. Forcing logout.', refreshError);
         
         // Optional: Dispatch logout action or redirect to login if refresh token also expired
-        // store.dispatch(logoutUser());
-        // window.location.href = '/login';
+        store.dispatch(logoutUser());
+        window.location.href = '/login';
         
         return Promise.reject(refreshError);
       }
