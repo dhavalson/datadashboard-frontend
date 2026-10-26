@@ -19,7 +19,7 @@ export default function OrderForm({
   const [orderCounter, setOrderCounter] = useState(1);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [quantities, setQuantities] = useState({});
-  const [filters, setFilters] = useState({ primary_category: '', secondary_category: '', display_category: '' });
+  const [filters, setFilters] = useState({ primary_category: '', secondary_category: '', display_category: '', standard_unit: '' });
 
   const { paddedCounter, sequenceLoading, error } = useSelector(
     (state) => state.primaryOrders || {}
@@ -175,6 +175,10 @@ const groupedProductsMatrix = useMemo(() => {
       .toLowerCase()
       .includes(String(filters?.display_category || '').toLowerCase());
 
+    const matchesStandardUnit = String(product?.standard_unit || '')
+      .toLowerCase()
+      .includes(String(filters?.standard_unit || '').toLowerCase());      
+
     return (
       passesDistributorGuard &&
       matchesPrimaryCategory &&
@@ -197,6 +201,7 @@ const groupedProductsMatrix = useMemo(() => {
         primaryCategory: row.primary_category || '',
         secondaryCategory: row.secondary_category || '',
         displayCategory: row.display_category || '',
+        standardUnit: row.standard_unit || '',
         productName: row.product_name || '',
         hsnCode: row.hsn_code || '',
         ptd: Number(row.ptd) || 0,
@@ -346,7 +351,7 @@ const groupedProductsMatrix = useMemo(() => {
 
   // Reset search filters on distributor change
   useEffect(() => {
-    setFilters({ primary_category: '', secondary_category: '', display_category: '' });
+    setFilters({ primary_category: '', secondary_category: '', display_category: '', standard_unit: '' });
   }, [selectedDistributor]);
 
   const todayDate = useMemo(() => {
@@ -421,6 +426,7 @@ const groupedProductsMatrix = useMemo(() => {
             primary_category: product.primaryCategory,
             secondary_category: product.secondaryCategory,
             display_category: product.displayCategory,
+            standard_unit: product.standardUnit,
             product_name: product.productName || product.displayCategory,
             product_code: variantKey,
             variant: size,
@@ -470,6 +476,7 @@ const groupedProductsMatrix = useMemo(() => {
       'Primary Category': item.primary_category,
       'Secondary Category': item.secondary_category,
       'Display Category': item.display_category,
+      'Standard Unit': item.standard_unit,
       'Product Name': item.product_name,
       'Product Code': item.product_code,
       'Variant': item.variant,
@@ -628,6 +635,7 @@ const groupedProductsMatrix = useMemo(() => {
                 <th style={{ padding: '4px 12px', width: '128px', textAlign: 'left', borderRight: '1px solid #d1d5db' }}>Primary Category</th>
                 <th style={{ padding: '4px 12px', width: '160px', textAlign: 'left', borderRight: '1px solid #d1d5db' }}>Secondary Category</th>
                 <th style={{ padding: '4px 12px', width: '224px', textAlign: 'left', borderRight: '1px solid #d1d5db' }}>Display Category</th>
+                <th style={{ padding: '4px 12px', width: '224px', textAlign: 'left', borderRight: '1px solid #d1d5db' }}>Std Unit</th>
                 <th style={{ padding: '4px', width: '64px', borderRight: '1px solid #d1d5db' }}>PTD (₹)</th>
                 {SIZES.map((s) => (
                   <th key={s} style={{ padding: '4px', width: '48px', backgroundColor: '#DDF3E4', borderRight: '1px solid #d1d5db' }}>
@@ -668,6 +676,15 @@ const groupedProductsMatrix = useMemo(() => {
                     onChange={(e) => setFilters((p) => ({ ...p, display_category: e.target.value }))}
                   />
                 </td>
+                <td style={{ padding: '4px', borderRight: '1px solid #e5e7eb' }}>
+                  <input
+                    type="text"
+                    placeholder="Filter standard_unit..."
+                    style={styles.filterInput}
+                    value={filters.standard_unit || ''}
+                    onChange={(e) => setFilters((p) => ({ ...p, standard_unit: e.target.value }))}
+                  />
+                </td>
                 <td style={{ borderRight: '1px solid #e5e7eb' }}></td>
                 <td colSpan={SIZES.length + 2} style={{ backgroundColor: '#f3f4f6' }}></td>
               </tr>
@@ -691,6 +708,7 @@ const groupedProductsMatrix = useMemo(() => {
                       <td style={{ ...styles.tdCell, backgroundColor: 'rgba(239, 246, 255, 0.4)', color: '#1e3a8a', fontWeight: 600 }}>
                         {product.displayCategory}
                       </td>
+                      <td style={{ ...styles.tdCell, color: '#4b5563' }}>{product.standardUnit}</td>
                       <td style={{ ...styles.tdCell, textAlign: 'center', fontFamily: 'monospace', fontWeight: 'bold', color: '#4b5563', backgroundColor: 'rgba(249, 250, 251, 0.5)' }}>
                         {product.ptd?.toFixed(2)}
                       </td>

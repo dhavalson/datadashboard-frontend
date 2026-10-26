@@ -51,12 +51,13 @@ const mapExcelRowToDbFields = (row) => {
     distributor_name: row['Distributor Name'] || row['distributor_name'] || null,
     gst_no: row['Gst No'] || row['gst_no'] || null,
     // pan_no: row['Pan No'] || row['pan_no'] || null,
-    zone: row['Zone'] || row['zone'] || null,
-    territory: row['Territory'] || row['territory'] || null,
-    allowed_category: row['allowed_category'] || row['Allowed_Category'] || null,
     state: row['State'] || row['state'] || null,
     pincode: row['Pincode'] || row['pincode'] || null,
     city: row['city'] || row['City'] || null,
+    zone: row['Zone'] || row['zone'] || null,
+    territory: row['Territory'] || row['territory'] || null,
+    allowed_category: row['allowed_category'] || row['Allowed_Category'] || null,
+     
     // contact_person: row['Contact Person'] || row['contact_person'] || null,
     // phone: row['Phone'] || row['phone'] ? String(row['Phone'] || row['phone']) : null,
     // email: row['Email'] || row['email'] || null,
@@ -80,7 +81,7 @@ const DistributorMaster = () => {
   const dispatch = useDispatch();
 
   const { data = [], loading, error } = useSelector((state) => state.distributor || {});
-  console.log(data);
+  // console.log(data);
   
   const { user } = useSelector((state) => state.auth || {});
 
@@ -114,6 +115,7 @@ const DistributorMaster = () => {
         const rawParsedData = XLSX.utils.sheet_to_json(wb.Sheets[wsname]);
 
         const formattedData = rawParsedData.map(mapExcelRowToDbFields);
+        console.log(formattedData)
 
         // await axios.put('http://localhost:5000/api/distributors/distributormaster/bulk',
         await api.put('/distributors/distributormaster/bulk',
