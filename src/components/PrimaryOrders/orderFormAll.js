@@ -12,8 +12,16 @@ export default function OrderFormAll() {
   const { user } = useSelector((state) => state.auth || {});
   const { data = [], loading, error } = useSelector((state) => state.product || {});
   const [DISTRIBUTORS = [], DISTRI_ALLOWED_GROUP = {}, loadingD] = FetchDistributor();
+  const DISTRIBUTORS_ACTIVE = DISTRIBUTORS.filter(item => item.status == 'Active')
+  // console.log(DISTRIBUTORS_a);  
 
   const [selectedDistributor, setSelectedDistributor] = useState(null);
+
+  const activeProducts = useMemo(() => {
+  return data.filter((product) => 
+    String(product?.status || '').trim().toLowerCase() === 'active'
+  );
+}, [data]);
 
 
   // Master custom sort SIZES order map
@@ -57,17 +65,17 @@ export default function OrderFormAll() {
 
   // 1. Compute unique sizes dynamically using useMemo (No infinite re-render)
   const sizes = useMemo(() => {
-    if (!Array.isArray(data)) return [];
+    if (!Array.isArray(activeProducts)) return [];
 
 
     // 1. Extract unique raw variant strings
     const rawUniqueSizes = [
-      ...new Set(data.map((item) => item?.variant?.toString().trim()).filter(Boolean))
+      ...new Set(activeProducts.map((item) => item?.variant?.toString().trim()).filter(Boolean))
     ];
 
     // 2. Return strictly sorted sizes
     return sortSizes(rawUniqueSizes);
-  }, [data]);
+  }, [activeProducts]);
 
   // 2. Set default selected distributor safely when loaded
   useEffect(() => {
@@ -103,8 +111,8 @@ export default function OrderFormAll() {
 
   return (
     <OrderForm
-      INITIAL_PRODUCTS={data}
-      DISTRIBUTORS={DISTRIBUTORS}
+      INITIAL_PRODUCTS={activeProducts}
+      DISTRIBUTORS={DISTRIBUTORS_ACTIVE}
       SIZES={sizes}
       DISTRI_ALLOWED_GROUP={allowedGroupsForCurrentDist}
       // selectedDistributor={selectedDistributor}

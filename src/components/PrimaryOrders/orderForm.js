@@ -27,6 +27,90 @@ export default function OrderForm({
 
   const dispatch = useDispatch();
 
+
+
+// Memoized Unfiltered Products Matrix (Carries full product schema, ignoring text filters)
+const unfilteredProductsMatrix = useMemo(() => {
+  if (!selectedDistributor) return [];
+
+  const allowedCategoriesRaw = selectedDistributor?.allowed_category || [];
+  const allowedGroupsForCurrentDist = (
+    Array.isArray(allowedCategoriesRaw)
+      ? allowedCategoriesRaw
+      : String(allowedCategoriesRaw).split(',')
+  )
+    .map((cat) => String(cat).trim().toLowerCase())
+    .filter(Boolean);
+
+  const productsArray = Array.isArray(INITIAL_PRODUCTS)
+    ? INITIAL_PRODUCTS
+    : INITIAL_PRODUCTS?.data || [];
+
+  // Filter ONLY by distributor security guard, ignoring search box filters
+  const rawFilteredRows = productsArray.filter((product) => {
+    const productPrimaryCat = String(product?.primary_category || '').trim().toLowerCase();
+    return (
+      allowedGroupsForCurrentDist.length === 0 ||
+      allowedGroupsForCurrentDist.includes(productPrimaryCat)
+    );
+  });
+
+  const groupedMatrixMap = {};
+
+  rawFilteredRows.forEach((row) => {
+    const groupKey = row.display_category || row.product_name;
+
+    if (!groupedMatrixMap[groupKey]) {
+      groupedMatrixMap[groupKey] = {
+        id: groupKey,
+        srNo: Object.keys(groupedMatrixMap).length + 1,
+        productDivision: row.product_division || '',
+        primaryCategory: row.primary_category || '',
+        secondaryCategory: row.secondary_category || '',
+        displayCategory: row.display_category || '',
+        standardUnit: row.standard_unit || '',
+        productName: row.product_name || '',
+        hsnCode: row.hsn_code || '',
+        ptd: Number(row.ptd) || 0,
+        mrp: Number(row.mrp) || 0,
+        conversion_factor: row.standard_unit_conversion_factor || row.conversion_factor || 5,
+        colour: row.colour,
+        alternateCategory: row.alternate_category,
+        std_unit: row.standard_unit,
+        gst: row.gst,
+        // tax_value:row.tax_value,
+  
+        sizeIdMap: {},
+        allowedSizes: [],
+        activeSizes: []
+      };
+    }
+
+    const sizeVariant = (row.variant || '').trim();
+    const variantKey = row.product_code || row.id;
+
+    if (sizeVariant) {
+      groupedMatrixMap[groupKey].sizeIdMap[sizeVariant] = variantKey;
+
+      if (!groupedMatrixMap[groupKey].allowedSizes.includes(sizeVariant)) {
+        groupedMatrixMap[groupKey].allowedSizes.push(sizeVariant);
+      }
+
+      if (
+        row.status === 'Active' &&
+        !groupedMatrixMap[groupKey].activeSizes.includes(sizeVariant)
+      ) {
+        groupedMatrixMap[groupKey].activeSizes.push(sizeVariant);
+      }
+    }
+  });
+
+  return Object.values(groupedMatrixMap);
+}, [INITIAL_PRODUCTS, selectedDistributor]);
+
+
+
+
   // Automatically select the first distributor ONLY once when DISTRIBUTORS loads
   useEffect(() => {
     if (DISTRIBUTORS?.length > 0 && !selectedDistributor) {
@@ -45,89 +129,6 @@ export default function OrderForm({
       setQuantities(initialQty);
     }
   }, [INITIAL_PRODUCTS.length]);
-
-  // Memoized Products Matrix mapped to productmaster schema
-  // const groupedProductsMatrix = useMemo(() => {
-  //   if (!selectedDistributor) return [];
-
-  //   const distributorName = selectedDistributor?.distributor_name || '';
-  //   const allowedGroupsForCurrentDist = DISTRI_ALLOWED_GROUP[distributorName] || [];
-
-  //   const productsArray = Array.isArray(INITIAL_PRODUCTS)
-  //     ? INITIAL_PRODUCTS
-  //     : (INITIAL_PRODUCTS?.data || []);
-
-  //   const rawFilteredRows = productsArray.filter((product) => {
-  //     const passesDistributorGuard =
-  //       allowedGroupsForCurrentDist.length === 0 ||
-  //       allowedGroupsForCurrentDist.includes(product.secondary_category);
-
-  //     const matchesPrimaryCategory = (product.primary_category || '')
-  //       .toLowerCase()
-  //       .includes((filters.primary_category || '').toLowerCase());
-
-  //     const matchesSecondaryCategory = (product.secondary_category || '')
-  //       .toLowerCase()
-  //       .includes((filters.secondary_category || '').toLowerCase());
-
-  //     const matchesDisplayCategory = (product.display_category || '')
-  //       .toLowerCase()
-  //       .includes((filters.display_category || '').toLowerCase());
-
-  //     return (
-  //       passesDistributorGuard &&
-  //       matchesPrimaryCategory &&
-  //       matchesSecondaryCategory &&
-  //       matchesDisplayCategory
-  //     );
-  //   });
-
-  //   const groupedMatrixMap = {};
-  //   rawFilteredRows.forEach((row) => {
-  //     const groupKey = row.display_category || row.product_name;
-
-  //     if (!groupedMatrixMap[groupKey]) {
-  //       groupedMatrixMap[groupKey] = {
-  //         id: groupKey,
-  //         srNo: Object.keys(groupedMatrixMap).length + 1,
-  //         productDivision: row.product_division || '',
-  //         primaryCategory: row.primary_category || '',
-  //         secondaryCategory: row.secondary_category || '',
-  //         displayCategory: row.display_category || '',
-  //         productName: row.product_name || '',
-  //         hsnCode: row.hsn_code || '',
-  //         ptd: Number(row.ptd) || 0,
-  //         mrp: Number(row.mrp) || 0,
-  //         conversion_factor: row.std_unit_conversion_factor || row.conversion_factor || 5,
-  //         // attribute1: row.product_attribute_text1,
-  //         // attribute2: row.product_attribute_text2,
-  //         colour: row.colour,
-  //         alternateCategory: row.alternate_category,
-  //         std_unit: row.std_unit,
-  //         sizeIdMap: {},
-  //         allowedSizes: [],
-  //         activeSizes: []
-  //       };
-  //     }
-
-  //     const sizeVariant = (row.variant || '').trim();
-  //     const variantKey = row.product_code || row.id;
-
-  //     if (sizeVariant) {
-  //       groupedMatrixMap[groupKey].sizeIdMap[sizeVariant] = variantKey;
-
-  //       if (!groupedMatrixMap[groupKey].allowedSizes.includes(sizeVariant)) {
-  //         groupedMatrixMap[groupKey].allowedSizes.push(sizeVariant);
-  //       }
-
-  //       if (row.status === 'Active' && !groupedMatrixMap[groupKey].activeSizes.includes(sizeVariant)) {
-  //         groupedMatrixMap[groupKey].activeSizes.push(sizeVariant);
-  //       }
-  //     }
-  //   });
-
-  //   return Object.values(groupedMatrixMap);
-  // }, [filters, INITIAL_PRODUCTS, selectedDistributor, DISTRI_ALLOWED_GROUP]);
 
 // Memoized Products Matrix mapped to productmaster schema
 const groupedProductsMatrix = useMemo(() => {
@@ -183,7 +184,8 @@ const groupedProductsMatrix = useMemo(() => {
       passesDistributorGuard &&
       matchesPrimaryCategory &&
       matchesSecondaryCategory &&
-      matchesDisplayCategory
+      matchesDisplayCategory &&
+      matchesStandardUnit
     );
   });
 
@@ -206,11 +208,10 @@ const groupedProductsMatrix = useMemo(() => {
         hsnCode: row.hsn_code || '',
         ptd: Number(row.ptd) || 0,
         mrp: Number(row.mrp) || 0,
-        conversion_factor:
-          row.std_unit_conversion_factor || row.conversion_factor || 5,
+        conversion_factor: row.standard_unit_conversion_factor || row.conversion_factor || 5,
         colour: row.colour,
         alternateCategory: row.alternate_category,
-        std_unit: row.std_unit,
+        std_unit: row.standard_unit,
         sizeIdMap: {},
         allowedSizes: [],
         activeSizes: []
@@ -238,116 +239,7 @@ const groupedProductsMatrix = useMemo(() => {
 
   return Object.values(groupedMatrixMap);
 }, [filters, INITIAL_PRODUCTS, selectedDistributor]);
-//   const groupedProductsMatrix = useMemo(() => {
-//   if (!selectedDistributor) return [];
 
-//   // const distributorName = selectedDistributor?.distributor_name || '';
-
-//   // // 1. Normalize allowed categories for case-insensitive lookup
-//   // const allowedGroupsForCurrentDist = (
-//   //   DISTRI_ALLOWED_GROUP[distributorName] || []
-//   // ).map((cat) => String(cat).trim().toLowerCase());
-
-//   // 1. Extract directly from the selected distributor object fetched from DB
-// const allowedCategoriesRaw = selectedDistributor?.allowed_categories || [];
-
-// // 2. Normalize (handles both Postgres array or comma-separated string)
-// const allowedGroupsForCurrentDist = (
-//   Array.isArray(allowedCategoriesRaw)
-//     ? allowedCategoriesRaw
-//     : String(allowedCategoriesRaw).split(',')
-// )
-// .map((cat) => String(cat).trim().toLowerCase())
-// .filter(Boolean);
-
-
-//   // 2. Handle array vs nested object data structure
-//   const productsArray = Array.isArray(INITIAL_PRODUCTS)
-//     ? INITIAL_PRODUCTS
-//     : INITIAL_PRODUCTS?.data || [];
-
-//   // 3. Single-pass filtering
-//   const rawFilteredRows = productsArray.filter((product) => {
-//     const productSecondaryCategory = String(product?.primary_category || '')
-//       .trim()
-//       .toLowerCase();
-
-//     // Case-insensitive distributor security guard
-//     const passesDistributorGuard =
-//       allowedGroupsForCurrentDist.length === 0 ||
-//       allowedGroupsForCurrentDist.includes(productSecondaryCategory);
-
-//     // Case-insensitive UI filters
-//     const matchesPrimaryCategory = String(product?.primary_category || '')
-//       .toLowerCase()
-//       .includes(String(filters?.primary_category || '').toLowerCase());
-
-//     const matchesSecondaryCategory = String(product?.secondary_category || '')
-//       .toLowerCase()
-//       .includes(String(filters?.secondary_category || '').toLowerCase());
-
-//     const matchesDisplayCategory = String(product?.display_category || '')
-//       .toLowerCase()
-//       .includes(String(filters?.display_category || '').toLowerCase());
-
-//     return (
-//       passesDistributorGuard &&
-//       matchesPrimaryCategory &&
-//       matchesSecondaryCategory &&
-//       matchesDisplayCategory
-//     );
-//   });
-
-//   // 4. Matrix Grouping Logic
-//   const groupedMatrixMap = {};
-
-//   rawFilteredRows.forEach((row) => {
-//     const groupKey = row.display_category || row.product_name;
-
-//     if (!groupedMatrixMap[groupKey]) {
-//       groupedMatrixMap[groupKey] = {
-//         id: groupKey,
-//         srNo: Object.keys(groupedMatrixMap).length + 1,
-//         productDivision: row.product_division || '',
-//         primaryCategory: row.primary_category || '',
-//         secondaryCategory: row.secondary_category || '',
-//         displayCategory: row.display_category || '',
-//         productName: row.product_name || '',
-//         hsnCode: row.hsn_code || '',
-//         ptd: Number(row.ptd) || 0,
-//         mrp: Number(row.mrp) || 0,
-//         conversion_factor:
-//           row.std_unit_conversion_factor || row.conversion_factor || 5,
-//         colour: row.colour,
-//         alternateCategory: row.alternate_category,
-//         std_unit: row.std_unit,
-//         sizeIdMap: {},
-//         allowedSizes: [],
-//         activeSizes: []
-//       };
-//     }
-
-//     const sizeVariant = (row.variant || '').trim();
-//     const variantKey = row.product_code || row.id;
-
-//     if (sizeVariant) {
-//       groupedMatrixMap[groupKey].sizeIdMap[sizeVariant] = variantKey;
-
-//       if (!groupedMatrixMap[groupKey].allowedSizes.includes(sizeVariant)) {
-//         groupedMatrixMap[groupKey].allowedSizes.push(sizeVariant);
-//       }
-
-//       if (
-//         row.status === 'Active' &&
-//         !groupedMatrixMap[groupKey].activeSizes.includes(sizeVariant)
-//       ) {
-//         groupedMatrixMap[groupKey].activeSizes.push(sizeVariant);
-//       }
-//     }
-//   });
-
-//   return Object.values(groupedMatrixMap);
-// }, [filters, INITIAL_PRODUCTS, selectedDistributor, DISTRI_ALLOWED_GROUP]);
 
   // Reset search filters on distributor change
   useEffect(() => {
@@ -382,20 +274,81 @@ const groupedProductsMatrix = useMemo(() => {
 
   const getRowAmount = (product) => product.ptd * getRowTotalQty(product);
 
-  const grandTotalQty = useMemo(
-    () => Object.values(quantities).reduce((sum, qty) => sum + (Number(qty) || 0), 0),
-    [quantities]
-  );
+  // const grandTotalQty = useMemo(
+  //   () => Object.values(quantities).reduce((sum, qty) => sum + (Number(qty) || 0), 0),
+  //   [quantities]
+  // );
 
-  const grandTotalAmount = useMemo(
-    () => groupedProductsMatrix.reduce((sum, p) => sum + getRowAmount(p), 0),
-    [quantities, groupedProductsMatrix]
-  );
+  // const grandTotalAmount = useMemo(
+  //   // () => groupedProductsMatrix.reduce((sum, p) => sum + getRowAmount(p), 0),
+  //   () => Object.values(quantities).reduce((sum, p) => sum + getRowAmount(p), 0),
+  //   [quantities]//, groupedProductsMatrix]
+  // );
+
+ // 1. Calculate grand total quantity across ALL products (unfiltered)
+  // const grandTotalQty = useMemo(() => {
+  //   return unfilteredProductsMatrix.reduce((sum, product) => {
+  //     return sum + SIZES.reduce((sSum, s) => sSum + (Number(quantities[product.sizeIdMap?.[s]]) || 0), 0);
+  //   }, 0);
+  // }, [quantities, unfilteredProductsMatrix, SIZES]);
+
+  // 1. Calculate grand total quantity with conditional unit check
+  // console.log(unfilteredProductsMatrix);
+  
+  const grandTotalQty = useMemo(() => {
+    return unfilteredProductsMatrix.reduce((sum, product) => {
+      // Get the conversion factor for this product (default to 5 if missing)
+      const conversionFactor = Number(product.conversion_factor);
+      
+      // Check the standard unit type (normalized to lowercase for safety)
+      const stdUnit = String(product.standardUnit).trim().toLowerCase();
+      // console.log(stdUnit);
+      
+
+      // Sum up sizes for this product row
+      const rowQty = SIZES.reduce((sSum, s) => {
+        const qtyInput = Number(quantities[product.sizeIdMap?.[s]]) || 0;
+        return sSum + qtyInput;
+      }, 0);
+
+      // Apply your conditional logic based on standard unit
+      let adjustedRowQty = 0;
+      if (stdUnit === 'box') {
+        // If standard unit is Box, sum = sum + qty
+        adjustedRowQty = rowQty;
+      } else if (stdUnit === 'pcs' || stdUnit === 'piece') {
+        // If standard unit is Pcs, sum = sum + (qty / conversion_factor)
+        adjustedRowQty = conversionFactor > 0 ? rowQty / conversionFactor : rowQty;
+      } else {
+        // Fallback default if unit is something else
+        adjustedRowQty = rowQty;
+      }
+
+      return sum + adjustedRowQty;
+    }, 0);
+  }, [quantities, unfilteredProductsMatrix, SIZES]);
+
+  // 2. Calculate grand total amount across ALL products (unfiltered)
+  const grandTotalAmount = useMemo(() => {
+    return unfilteredProductsMatrix.reduce((sum, product) => {
+      const rowQty = SIZES.reduce((sSum, s) => sSum + (Number(quantities[product.sizeIdMap?.[s]]) || 0), 0);
+      const ptd = Number(product.ptd) || 0;
+      return sum + (ptd * rowQty);
+    }, 0);
+  }, [quantities, unfilteredProductsMatrix, SIZES]);
+
+
+
+
+
 
   const activeOrderItems = useMemo(
-    () => groupedProductsMatrix.filter((p) => getRowTotalQty(p) > 0),
+    // () => groupedProductsMatrix.filter((p) => getRowTotalQty(p) > 0),
+    () => unfilteredProductsMatrix.filter((p) => getRowTotalQty(p) > 0),
     [quantities, groupedProductsMatrix]
   );
+  // console.log(activeOrderItems);
+  
 
   const generatePayloadDataStructure = () => {
     const today = new Date();
@@ -404,18 +357,24 @@ const groupedProductsMatrix = useMemo(() => {
 
     const items = [];
 
-    groupedProductsMatrix.forEach((product) => {
+    // groupedProductsMatrix.forEach((product) => {
+      activeOrderItems.forEach((product) => {
       SIZES.forEach((size) => {
         const variantKey = product.sizeIdMap[size];
         const qtyValue = Number(quantities[variantKey]) || 0;
 
         if (qtyValue > 0) {
           const conversionFactor = product.conversion_factor || 5;
-          const qtyPcs = qtyValue * conversionFactor;
+          const qtyPcs = product.std_unit == "Box" ? qtyValue * conversionFactor : qtyValue;
+          const qtyBox = product.std_unit == "Box" ? qtyValue : qtyValue / conversionFactor;
           const ptd = Number(product.ptd) || 0;
           const mrp = Number(product.mrp) || 0;
           const ptr = Number(product.ptr) || ptd;
           const taxableValue = Number((ptd * qtyValue).toFixed(2));
+          
+          const gst = Number(product.gst);
+          const tax_value = Number((gst/100 * taxableValue).toFixed(2));
+          const total_value = Number((tax_value + taxableValue).toFixed(2))
 
           items.push({
             order_no: orderNumber,
@@ -423,29 +382,32 @@ const groupedProductsMatrix = useMemo(() => {
             order_time: formattedTime,
             distributor_code: selectedDistributor?.code || selectedDistributor?.distributor_code || '',
             distributor_name: selectedDistributor?.name || selectedDistributor?.distributor_name || '',
-            primary_category: product.primaryCategory,
-            secondary_category: product.secondaryCategory,
-            display_category: product.displayCategory,
-            standard_unit: product.standardUnit,
+            // primary_category: product.primaryCategory,
+            // secondary_category: product.secondaryCategory,
+            // display_category: product.displayCategory,
+            // standard_unit: product.standardUnit,
             product_name: product.productName || product.displayCategory,
             product_code: variantKey,
-            variant: size,
-            product_attribute_text1: product.attribute1 || `${product.displayCategory}_${size}`,
-            product_attribute_text2: product.attribute2 || null,
-            colour: product.colour || null,
-            alternate_category: product.alternateCategory || null,
+            // variant: size,
+            // product_attribute_text1: product.attribute1 || `${product.displayCategory}_${size}`,
+            // product_attribute_text2: product.attribute2 || null,
+            // colour: product.colour || null,
+            // alternate_category: product.alternateCategory || null,
             qty: qtyValue,
-            std_unit: product.std_unit || 'Box',
+            std_unit: product.standard_unit || product.std_unit,
             qty_pcs: qtyPcs,
-            qty_boxes: qtyValue,
+            qty_boxes: qtyBox,
             std_unit_conversion_factor: conversionFactor,
             mrp: mrp,
             ptd: ptd,
             ptr: ptr,
-            cgst: 0,
-            sgst: 0,
-            igst: 0,
-            total_value: taxableValue
+            // cgst: 0,
+            // sgst: 0,
+            // igst: 0,
+            taxable_value: taxableValue,
+            gst:gst,
+            tax_value:tax_value,
+            total_value:total_value
           });
         }
       });
@@ -473,13 +435,13 @@ const groupedProductsMatrix = useMemo(() => {
       'Order Time': item.order_time,
       'Distributor Code': item.distributor_code,
       'Distributor Name': item.distributor_name,
-      'Primary Category': item.primary_category,
-      'Secondary Category': item.secondary_category,
-      'Display Category': item.display_category,
+      // 'Primary Category': item.primary_category,
+      // 'Secondary Category': item.secondary_category,
+      // 'Display Category': item.display_category,
       'Standard Unit': item.standard_unit,
       'Product Name': item.product_name,
       'Product Code': item.product_code,
-      'Variant': item.variant,
+      // 'Variant': item.variant,
       'Qty (Boxes)': item.qty_boxes,
       'Qty (Pcs)': item.qty_pcs,
       'MRP': item.mrp,
@@ -516,6 +478,7 @@ const groupedProductsMatrix = useMemo(() => {
 
   const handleSaveOrder = async () => {
     const payload = generatePayloadDataStructure();
+    console.log(payload)
 
     if (!payload.items || payload.items.length === 0) {
       alert('Cannot save an empty order!');
@@ -605,7 +568,7 @@ const groupedProductsMatrix = useMemo(() => {
         <div style={styles.summaryStrip}>
           <div style={styles.badgeBlack}>
             <span>Order Qty:</span>
-            <span style={{ color: '#facc15', fontWeight: 900 }}>{grandTotalQty}</span>
+            <span style={{ color: '#facc15', fontWeight: 900 }}>{grandTotalQty.toFixed(2)}</span>
           </div>
           <div style={styles.badgeSlate}>
             <span>Order Amount:</span>
@@ -631,14 +594,14 @@ const groupedProductsMatrix = useMemo(() => {
                 </td>
               </tr>
               <tr style={styles.thStickyRow2}>
-                <th style={{ padding: '4px', width: '48px', borderRight: '1px solid #d1d5db' }}>Sr. No</th>
-                <th style={{ padding: '4px 12px', width: '128px', textAlign: 'left', borderRight: '1px solid #d1d5db' }}>Primary Category</th>
-                <th style={{ padding: '4px 12px', width: '160px', textAlign: 'left', borderRight: '1px solid #d1d5db' }}>Secondary Category</th>
-                <th style={{ padding: '4px 12px', width: '224px', textAlign: 'left', borderRight: '1px solid #d1d5db' }}>Display Category</th>
-                <th style={{ padding: '4px 12px', width: '224px', textAlign: 'left', borderRight: '1px solid #d1d5db' }}>Std Unit</th>
-                <th style={{ padding: '4px', width: '64px', borderRight: '1px solid #d1d5db' }}>PTD (₹)</th>
+                <th style={{ padding: '4px', width: '36px', borderRight: '1px solid #d1d5db' }}>Sr. No</th>
+                {/* <th style={{ padding: '4px 12px', width: '128px', textAlign: 'left', borderRight: '1px solid #d1d5db' }}>Primary Category</th> */}
+                <th style={{ padding: '4px 12px', width: '172px', textAlign: 'left', borderRight: '1px solid #d1d5db' }}>Secondary Category</th>
+                <th style={{ padding: '4px 12px', width: '352px', textAlign: 'left', borderRight: '1px solid #d1d5db' }}>Display Category</th>
+                <th style={{ padding: '4px 12px', width: '28px', textAlign: 'left', borderRight: '1px solid #d1d5db' }}>Standard Unit</th>
+                <th style={{ padding: '4px', width: '64px', borderRight: '1px solid #d1d5db' }}>MRP/PTD (₹)</th>
                 {SIZES.map((s) => (
-                  <th key={s} style={{ padding: '4px', width: '48px', backgroundColor: '#DDF3E4', borderRight: '1px solid #d1d5db' }}>
+                  <th key={s} style={{ padding: '4px', width: '28px', backgroundColor: '#DDF3E4', borderRight: '1px solid #d1d5db' }}>
                     {s}
                   </th>
                 ))}
@@ -649,7 +612,7 @@ const groupedProductsMatrix = useMemo(() => {
               {/* Dynamic Search Filters */}
               <tr style={styles.thStickyRow3}>
                 <td style={{ borderRight: '1px solid #e5e7eb' }}></td>
-                <td style={{ padding: '4px', borderRight: '1px solid #e5e7eb' }}>
+                {/* <td style={{ padding: '4px', borderRight: '1px solid #e5e7eb' }}>
                   <input
                     type="text"
                     placeholder="Filter Primary..."
@@ -657,7 +620,7 @@ const groupedProductsMatrix = useMemo(() => {
                     value={filters.primary_category || ''}
                     onChange={(e) => setFilters((p) => ({ ...p, primary_category: e.target.value }))}
                   />
-                </td>
+                </td> */}
                 <td style={{ padding: '4px', borderRight: '1px solid #e5e7eb' }}>
                   <input
                     type="text"
@@ -703,14 +666,14 @@ const groupedProductsMatrix = useMemo(() => {
                   return (
                     <tr key={product.id} style={{ borderBottom: '1px solid #d1d5db', fontWeight: 500, color: '#1f2937' }}>
                       <td style={{ ...styles.tdCell, textAlign: 'center', padding: '10px 0' }}>{product.srNo}</td>
-                      <td style={{ ...styles.tdCell, fontWeight: 'bold' }}>{product.primaryCategory}</td>
+                      {/* <td style={{ ...styles.tdCell, fontWeight: 'bold' }}>{product.primaryCategory}</td> */}
                       <td style={{ ...styles.tdCell, color: '#4b5563' }}>{product.secondaryCategory}</td>
                       <td style={{ ...styles.tdCell, backgroundColor: 'rgba(239, 246, 255, 0.4)', color: '#1e3a8a', fontWeight: 600 }}>
                         {product.displayCategory}
                       </td>
                       <td style={{ ...styles.tdCell, color: '#4b5563' }}>{product.standardUnit}</td>
                       <td style={{ ...styles.tdCell, textAlign: 'center', fontFamily: 'monospace', fontWeight: 'bold', color: '#4b5563', backgroundColor: 'rgba(249, 250, 251, 0.5)' }}>
-                        {product.ptd?.toFixed(2)}
+                        {product.mrp?.toFixed(0)}/{product.ptd?.toFixed(2)}
                       </td>
                       {SIZES.map((s) => {
                         const isAllowed = product.allowedSizes?.includes(s);
@@ -786,7 +749,7 @@ const groupedProductsMatrix = useMemo(() => {
                   textAlign: 'right'        // Aligns raw text content right
                 }}>
                   <span style={{ backgroundColor: '#1e293b', padding: '4px 10px', borderRadius: '4px', color: '#e2e8f0' }}>
-                    Order Qty: <strong style={{ color: '#ffffff' }}>{grandTotalQty}</strong>
+                    Order Qty: <strong style={{ color: '#ffffff' }}>{grandTotalQty.toFixed(2)}</strong>
                   </span>
                   <span style={{ backgroundColor: '#1e293b', padding: '4px 10px', borderRadius: '4px', color: '#e2e8f0' }}>
                     Order Amount: <strong style={{ color: '#10b981' }}>₹{Number(grandTotalAmount || 0).toFixed(2)}</strong>
@@ -821,7 +784,7 @@ const groupedProductsMatrix = useMemo(() => {
                     {activeOrderItems.map((product, idx) => (
                       <tr key={product.id} style={{ borderBottom: '1px solid #e5e7eb', textAlign: 'center' }}>
                         <td style={{ padding: '10px 8px' }}>{idx + 1}</td>
-                        <td style={{ textAlign: 'left', padding: '10px 12px', fontWeight: 600 }}>{product.displayCategory}</td>
+                        <td style={{ textAlign: 'left', padding: '10px 12px', fontWeight: 600 }}>{product.id}</td>
                         <td style={{ padding: '10px 8px' }}>{product.ptd?.toFixed(2)}</td>
                         {SIZES.map((s) => (
                           <td key={s} style={{ padding: '10px 8px' }}>{quantities[product.sizeIdMap?.[s]] || 0}</td>

@@ -46,7 +46,7 @@ const SUMMARY_COLUMNS = [
   { key: 'distributor_name', label: 'Distributor Name' },
   { key: 'distributor_code', label: 'Distributor Code' },
   { key: 'territory_zone', label: 'Territory Zone' },
-  { key: 'total_qty', label: 'Total Qty', isNumeric: true },
+  { key: 'total_qty', label: 'Total Qty (Box)', isNumeric: true },
   { key: 'total_amount', label: 'Total Amount', isCurrency: true },
   { key: 'created_at', label: 'Created At', isDate: true }
 ];

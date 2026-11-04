@@ -51,6 +51,9 @@ const mapExcelRowToDbFields = (row) => {
     role: row['Role'] || row['role'] || 'user',
     zone: row['Zone'] || row['zone'] || null,
     territory: row['Territory'] || row['territory'] || null,
+    distributor_code:row['distributor_code'] || null,
+    distributor_name: row['distributor_name'] || null,
+    status: row['status'] || 'Active',
     created_at: parseExcelDate(row['Created At'] || row['created_at']),
   };
 };
@@ -168,7 +171,10 @@ const UserMaster = () => {
     { key: 'role', label: 'Role' },
     { key: 'zone', label: 'Zone' },
     { key: 'territory', label: 'Territory' },
+    {key: 'distributor_code', label:'Distributor Code'},
+    {key: 'distributor_name', label:'Distributor Name'},
     { key: 'refresh_token', label: 'Session Status' },
+    { key: 'status', label: 'Status' },
     { key: 'created_at', label: 'Created At', isDate: true },
     {
       key: 'actions',
@@ -207,9 +213,9 @@ const UserMaster = () => {
               <button onClick={handleExportExcel} style={styles.exportBtn}>
                 <FaFileDownload /> Download Excel
               </button>
-              <button onClick={() => handleOpenModal(null)} style={styles.addBtn}>
+              {/* <button onClick={() => handleOpenModal(null)} style={styles.addBtn}>
                 <FaPlus /> Add User
-              </button>
+              </button> */}
               <label style={styles.importBtn}>
                 <FaFileUpload /> Upload Excel
                 <input type="file" accept=".xlsx, .xls" onChange={handleImportExcel} hidden />
@@ -301,6 +307,16 @@ const UserMaster = () => {
                     value={formData.territory ?? ''}
                     onChange={(e) => setFormData({ ...formData, territory: e.target.value })}
                     placeholder="e.g. Karnataka, Gujarat"
+                    style={styles.inputField}
+                  />
+                </div>
+                <div style={{ marginBottom: '10px' }}>
+                  <label style={styles.label}>Distributor Code</label>
+                  <input
+                    type="text"
+                    value={formData.distributor_code ?? ''}
+                    onChange={(e) => setFormData({ ...formData, distributor_code: e.target.value })}
+                    placeholder="e.g. XYXX_WEST_88"
                     style={styles.inputField}
                   />
                 </div>

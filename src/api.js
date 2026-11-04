@@ -1,6 +1,6 @@
 import axios from 'axios';
 import {store} from './redux/store'; // Path to your Redux store
-import { setToken } from './redux/authSlice'; // Adjust action name based on your slice
+import { setToken, logoutUser } from './redux/authSlice'; // Adjust action name based on your slice
 
 
 const API_URL = process.env.NODE_ENV === 'production' 
@@ -36,6 +36,10 @@ api.interceptors.response.use(
   (response) => response, // Pass through successful responses
   async (error) => {
     const originalRequest = error.config;
+
+    if (originalRequest.url?.includes('/auth/refresh')) {
+      return Promise.reject(error);
+    }
 
     // Check if error is due to an expired/invalid token (403 or 401) and we haven't retried yet
     if (

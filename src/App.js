@@ -20,6 +20,7 @@ import ProductMaster from './components/ProductMaster/productMaster';
 import PrimaryOrdersMaster from './components/PrimaryOrders/primaryOrdersMaster';
 import PrimaryOrdersSummary from './components/PrimaryOrders/primaryOrdersSummary';
 import OrderFormCategoryWise from './components/PrimaryOrders/orderFormCategoryWise';
+import OrderFormBoxPcsWise from './components/PrimaryOrders/orderFormBoxPcsWise';
 import UserMaster from './components/User/userMaster';
 
 import axios from 'axios';
@@ -112,6 +113,7 @@ useEffect(() => {
 
             {/* Primary Orders */}
             <Route path="/primaryorders/categorywise" element={<OrderFormCategoryWise />} />
+            <Route path="/primaryorders/standardunitwise" element={<OrderFormBoxPcsWise />} />
             <Route path="/primaryorders/create" element={<OrderFormAll />} />
             <Route path="/primaryorders/summary" element={<PrimaryOrdersSummary />} />
             <Route path="/primaryorders/all" element={<PrimaryOrdersMaster />} />

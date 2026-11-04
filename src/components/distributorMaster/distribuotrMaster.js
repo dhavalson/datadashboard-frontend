@@ -162,7 +162,7 @@ const DistributorMaster = () => {
         }
         const encodedId = encodeURIComponent(keyId);
         // const response = await axios.put(`http://localhost:5000/api/distributors/distributormaster/${encodedId}`,
-        const response = await api.put('/distributors/distributormaster/${encodedId}',
+        const response = await api.put(`/distributors/distributormaster/${encodedId}`,
           formData,
           config
         );
@@ -246,9 +246,9 @@ const DistributorMaster = () => {
             <button onClick={handleExportExcel} style={styles.exportBtn}>
               <FaFileDownload /> Download Excel
             </button>
-            <button onClick={() => handleOpenModal(null)} style={styles.addBtn}>
+            {/* <button onClick={() => handleOpenModal(null)} style={styles.addBtn}>
               <FaPlus /> Add Distributor
-            </button>
+            </button> */}
 
             <label style={styles.importBtn}>
               <FaFileUpload /> Upload Excel

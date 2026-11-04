@@ -48,6 +48,7 @@ const OrderFormCategoryWise = () => {
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [sizes, setSizes] = useState(null);
   const [DISTRIBUTORS = [], DISTRI_ALLOWED_GROUP = {}, loadingD] = FetchDistributor();
+  const DISTRIBUTORS_ACTIVE = DISTRIBUTORS.filter(item => item.status == 'Active')
   const [selectedDistributor, setSelectedDistributor] = useState(null);
   const distributorName = selectedDistributor?.distributor_name || '';
   const allowedGroupsForCurrentDist = DISTRI_ALLOWED_GROUP[distributorName] || [];
@@ -57,8 +58,14 @@ const OrderFormCategoryWise = () => {
     dispatch(fetchProductDetails());
   }, [dispatch, user?.id]);
 
-  const primaryCategories = Array.isArray(data)
-    ? [...new Set(data.map((item) => item?.primary_category).filter(Boolean))]
+  const activeProducts = useMemo(() => {
+      return data.filter((product) => 
+        String(product?.status || '').trim().toLowerCase() === 'active'
+      );
+    }, [data]);
+
+  const primaryCategories = Array.isArray(activeProducts)
+    ? [...new Set(activeProducts.map((item) => item?.primary_category).filter(Boolean))]
     : [];
 
   // const sizes = Array.isArray(data)
@@ -75,8 +82,8 @@ const OrderFormCategoryWise = () => {
 
     // Filter products by selected primary category
     const filteredProducts = categoryName
-      ? data.filter((item) => item?.primary_category === categoryName)
-      : data;
+      ? activeProducts.filter((item) => item?.primary_category === categoryName)
+      : activeProducts;
 
     setProducts(filteredProducts);
 
@@ -118,7 +125,7 @@ const OrderFormCategoryWise = () => {
         </button>
         <OrderForm
           INITIAL_PRODUCTS={products}
-          DISTRIBUTORS={DISTRIBUTORS}
+          DISTRIBUTORS={DISTRIBUTORS_ACTIVE}
           SIZES={sizes}
           // selectedDistributor={selectedDistributor}
           // setSelectedDistributor={setSelectedDistributor}

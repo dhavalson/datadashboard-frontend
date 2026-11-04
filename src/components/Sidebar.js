@@ -37,6 +37,7 @@ const menuItems = [
     path: '/primaryorders',
     subItems: [
       { title: 'Place a Order (Categorywise)', path: '/primaryorders/categorywise' },
+      { title: 'Place a Order (Standard Unitwise)', path: '/primaryorders/standardunitwise' },
       { title: 'Place a Order', path: '/primaryorders/create' },
       { title: 'Orders Summary', path: '/primaryorders/summary' },
       { title: 'Orders Details', path: '/primaryorders/all' },

@@ -50,7 +50,7 @@ const mapExcelRowToDbFields = (row) => {
     distributor_name: row['Distributor Name'] || row['distributor_name'] || null,
     distributor_code: row['Distributor Code'] || row['distributor_code'] || null,
     territory_zone: row['Territory Zone'] || row['territory_zone'] || null,
-    total_qty: row['Total Qty'] || row['total_qty'] !== undefined ? Number(row['Total Qty'] ?? row['total_qty']) : 0,
+    total_qty: row['Total Qty'] || row['total_qty_in_box'] !== undefined ? Number(row['Total Qty'] ?? row['total_qty_in_box']) : 0,
     total_amount: row['Total Amount'] || row['total_amount'] !== undefined ? Number(row['Total Amount'] ?? row['total_amount']) : 0,
   };
 };
@@ -64,7 +64,7 @@ const generateAllColumns = (data) => {
       { key: 'distributor_name', label: 'Distributor Name' },
       { key: 'distributor_code', label: 'Distributor Code' },
       { key: 'territory_zone', label: 'Territory Zone' },
-      { key: 'total_qty', label: 'Total Qty', isNumeric: true },
+      { key: 'total_qty_in_box', label: 'Total Qty (Box)', isNumeric: true },
       { key: 'total_amount', label: 'Total Amount', isCurrency: true },
       { key: 'created_at', label: 'Created At', isDate: true },
     ];

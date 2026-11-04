@@ -105,6 +105,7 @@ const mapExcelRowToDbFields = (row) => {
     display_mrp: getNumericField(0, 'Display MRP', 'display_mrp'),
     ptr: getNumericField(0, 'PTR', 'ptr'),
     ptd: getNumericField(0, 'PTD', 'ptd'),
+    gst: getNumericField(0, 'GST', 'gst')
   };
 };
 
@@ -205,6 +206,8 @@ const ProductMaster = () => {
       if (editingRow) {
         // UPDATE record (PUT) using product_code or unique id
         const keyId = formData.id;
+        console.log(keyId);
+        
 
         // const { id, created_at, updated_at, ...payload } = formData;
 
@@ -231,7 +234,7 @@ const ProductMaster = () => {
         }
         const encodedId = encodeURIComponent(keyId);
         // const response = await axios.put(`http://localhost:5000/api/products/productmaster/${encodedId}`,
-        const response = await api.put('/products/productmaster/${encodedId}',  
+        const response = await api.put(`/products/productmaster/${encodedId}`,  
           payload,
           config
         );
@@ -319,9 +322,9 @@ const ProductMaster = () => {
           <button onClick={handleExportExcel} style={styles.exportBtn}>
             <FaFileDownload /> Download Excel
           </button>
-          <button onClick={() => handleOpenModal(null)} style={styles.addBtn}>
+          {/* <button onClick={() => handleOpenModal(null)} style={styles.addBtn}>
             <FaPlus /> Add Product
-          </button>
+          </button> */}
           <label style={styles.importBtn}>
             <FaFileUpload /> Upload Excel
             <input type="file" accept=".xlsx, .xls" onChange={handleImportExcel} hidden  />

@@ -90,7 +90,22 @@ const PrimaryOrdersMaster = () => {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingRow, setEditingRow] = useState(null);
-  const [formData, setFormData] = useState({});
+  const initialFormState = {
+  order_no: '',
+  distributor_code: '',
+  product_code: '',
+  qty: '',
+  rate: '',
+  status: 'Active',
+  gst: '',
+  tax_amount: '',
+  taxable_amount: ''
+};
+
+// Initialize your form state with it
+const [formData, setFormData] = useState(initialFormState);
+
+  // const [formData, setFormData] = useState({});
 
   const fetchOrdersSummary = async () => {
     setLoading(true);
@@ -161,10 +176,21 @@ const PrimaryOrdersMaster = () => {
   // --- CRUD OPERATIONS ---
   const handleOpenModal = (row = null) => {
     setEditingRow(row);
-    setFormData(row ? { ...row } : {});
+    // setFormData(row ? { ...row } : {});
+    setFormData({
+    order_no: row.order_no || '',
+    distributor_code: row.distributor_code || '',
+    product_code: row.product_code || '',
+    qty: row.qty || '',
+    rate: row.rate || '',
+    status: row.status || 'Active',
+    gst: row.gst !== null && row.gst !== undefined ? row.gst : '',
+    tax_amount: row.tax_amount !== null && row.tax_amount !== undefined ? row.tax_amount : '',
+    taxable_amount: row.taxable_amount !== null && row.taxable_amount !== undefined ? row.taxable_amount : '',
+  });
     setIsModalOpen(true);
   };
-
+  
   const handleFormSubmit = async (e) => {
     if (e) e.preventDefault();
 
@@ -176,27 +202,42 @@ const PrimaryOrdersMaster = () => {
         withCredentials: true,
       };
 
+      // 1. Explicitly pick only the fields that belong to the primary_orders table
+      const payload = {
+        order_no: formData.order_no,
+        distributor_code: formData.distributor_code,
+        distributor_name: formData.distributor_name,
+        product_code: formData.product_code,
+        product_name: formData.product_name,
+        std_unit:formData.std_unit,
+        qty: formData.qty ? Number(formData.qty) : null,
+
+        ptd: formData.ptd ? Number(formData.rate) : null,
+        // status: formData.status || 'Active',
+        gst: formData.gst !== '' ? Number(formData.gst) : null,
+        tax_value: formData.tax_value !== '' ? Number(formData.tax_value) : null,
+        taxable_value: formData.taxable_value !== '' ? Number(formData.taxable_value) : null,
+      };
+
       if (editingRow) {
         // UPDATE record (PUT) using order_no or id
-        const keyId = formData.id || formData.order_no;
+        const keyId = formData.id;
 
-        const { id, created_at, updated_at, ...payload } = formData;
         if (!keyId) {
           alert('Order No or ID is required to update the record.');
           return;
         }
         const encodedId = encodeURIComponent(keyId);
-        // const response = await axios.put('http://localhost:5000/api/primaryorders/${encodedId}',
-        const response = await api.put('/primaryorders/${encodedId}',
+        
+        const response = await api.put(`/primaryorders/primaryorders/${encodedId}`,
           payload,
           config
         );
         alert(response.data?.message || 'Order updated successfully!');
       } else {
         // CREATE record (POST)
-        // const response = await axios.post('http://localhost:5000/api/primaryorders',
         const response = await api.post('/primaryorders',
-          formData,
+          payload,
           config
         );
         alert(response.data?.message || 'Order created successfully!');
@@ -204,6 +245,7 @@ const PrimaryOrdersMaster = () => {
 
       setIsModalOpen(false);
       setEditingRow(null);
+      setFormData(initialFormState); // 👈 Reset form back to clean state here!
       fetchOrdersSummary();
     } catch (err) {
       console.error('Submit Error:', err);
@@ -255,9 +297,9 @@ const PrimaryOrdersMaster = () => {
     <div style={styles.pageContainer}>
       <div style={styles.headerContainer}>
         <div>
-          <h2 style={{ margin: 0, fontSize: '24px' }}>Primary Orders Master</h2>
+          <h2 style={{ margin: 0, fontSize: '24px' }}>Primary Order Details</h2>
           <p style={{ margin: '4px 0 0 0', color: '#555' }}>
-            Showing summary records of all primary sales orders
+            Showing summary records of all primary orders
           </p>
         </div>
 
@@ -265,9 +307,9 @@ const PrimaryOrdersMaster = () => {
           <button onClick={handleExportExcel} style={styles.exportBtn}>
             <FaFileDownload /> Download Excel
           </button>
-          <button onClick={() => handleOpenModal(null)} style={styles.addBtn}>
+          {/* <button onClick={() => handleOpenModal(null)} style={styles.addBtn}>
             <FaPlus /> Add Order
-          </button>
+          </button> */}
           <label style={styles.importBtn}>
             <FaFileUpload /> Upload Excel
             <input type="file" accept=".xlsx, .xls" onChange={handleImportExcel} hidden />
