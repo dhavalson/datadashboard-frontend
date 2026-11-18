@@ -19,7 +19,7 @@ export default function OrderForm({
   const [quantities, setQuantities] = useState({});
   const [isSaving, setIsSaving] = useState(false);
   const [isHovered, setIsHovered] = useState(false); // 👈 State for hover effect
-  
+
   const [filters, setFilters] = useState({ primary_category: '', secondary_category: '', display_category: '', standard_unit: '' });
 
   const { paddedCounter, sequenceLoading, error } = useSelector(
@@ -34,7 +34,7 @@ export default function OrderForm({
   }, [dispatch]);
 
   const orderNumber = useMemo(() => {
-    return `XYPO/${paddedCounter || String(orderCounter).padStart(5, '0')}`;
+    return `XYPO/26-27/${paddedCounter || String(orderCounter).padStart(5, '0')}`;
   }, [orderCounter, paddedCounter]);
 
   // Memoized Unfiltered Products Matrix
@@ -292,6 +292,8 @@ export default function OrderForm({
     const items = [];
 
     activeOrderItems.forEach((product) => {
+      // console.log(product);
+      
       SIZES.forEach((size) => {
         const variantKey = product.sizeIdMap[size];
         const qtyValue = Number(quantities[variantKey]) || 0;
@@ -300,6 +302,7 @@ export default function OrderForm({
           const conversionFactor = product.conversion_factor || 5;
           const qtyPcs = product.std_unit == "Box" ? qtyValue * conversionFactor : qtyValue;
           const qtyBox = product.std_unit == "Box" ? qtyValue : qtyValue / conversionFactor;
+          const displayCategory = product.displayCategory || "";
           const ptd = Number(product.ptd) || 0;
           const mrp = Number(product.mrp) || 0;
           const ptr = Number(product.ptr) || ptd;
@@ -315,6 +318,7 @@ export default function OrderForm({
             distributor_code: selectedDistributor?.code || selectedDistributor?.distributor_code || '',
             distributor_name: selectedDistributor?.name || selectedDistributor?.distributor_name || '',
             product_code: variantKey,
+            display_category: displayCategory,
             qty: qtyValue,
             std_unit: product.standard_unit || product.std_unit,
             qty_pcs: qtyPcs,
@@ -356,14 +360,17 @@ export default function OrderForm({
       'Distributor Name': item.distributor_name,
       'Standard Unit': item.std_unit,
       'Product Code': item.product_code,
+      // 'Variant':item.variant,
       'Qty (Boxes)': item.qty_boxes,
       'Qty (Pcs)': item.qty_pcs,
       'MRP': item.mrp,
       'PTD': item.ptd,
       'Taxable Value': item.taxable_value,
-      'tax':item.tax_value,
+      'tax': item.tax_value,
       'Total Value': item.total_value
     }));
+    // console.log(payload);
+    
 
     const worksheetItems = XLSX.utils.json_to_sheet(exportRows);
     XLSX.utils.book_append_sheet(workbook, worksheetItems, 'Primary Orders');
@@ -401,38 +408,38 @@ export default function OrderForm({
     }
 
     setIsSaving(true); // 👈 Disable button and show loading state
-  try {
-    const response = await api.post('/primaryorders/primaryorders/bulk', payload.items, {
-      withCredentials: true
-    });
-
-    if (response.data.success) {
-      runExcelExportEngine(payload);
-      alert(`Success: ${response.data.message || 'Order saved successfully!'}`);
-      setOrderCounter((prev) => prev + 1);
-      setIsPreviewOpen(false);
-
-      const resetQty = {};
-      const productsArray = Array.isArray(INITIAL_PRODUCTS) ? INITIAL_PRODUCTS : INITIAL_PRODUCTS?.data || [];
-      productsArray.forEach((p) => {
-        const variantKey = p.product_code || p.id;
-        resetQty[variantKey] = '';
+    try {
+      const response = await api.post('/primaryorders/primaryorders/bulk', payload.items, {
+        withCredentials: true
       });
-      setQuantities(resetQty);
+
+      if (response.data.success) {
+        runExcelExportEngine(payload);
+        alert(`Success: ${response.data.message || 'Order saved successfully!'}`);
+        setOrderCounter((prev) => prev + 1);
+        setIsPreviewOpen(false);
+
+        const resetQty = {};
+        const productsArray = Array.isArray(INITIAL_PRODUCTS) ? INITIAL_PRODUCTS : INITIAL_PRODUCTS?.data || [];
+        productsArray.forEach((p) => {
+          const variantKey = p.product_code || p.id;
+          resetQty[variantKey] = '';
+        });
+        setQuantities(resetQty);
 
 
-      if (onSaveComplete) onSaveComplete();
+        if (onSaveComplete) onSaveComplete();
+      }
+    } catch (error) {
+      console.error('Save order error:', error);
+      alert(
+        'Database error saving order: ' +
+        (error.response?.data?.error || error.response?.data?.message || error.message)
+      );
+    } finally {
+      setIsSaving(false); // 👈 Re-enable button after request completes (success or error)
     }
-  } catch (error) {
-    console.error('Save order error:', error);
-    alert(
-      'Database error saving order: ' +
-      (error.response?.data?.error || error.response?.data?.message || error.message)
-    );
-  } finally {
-    setIsSaving(false); // 👈 Re-enable button after request completes (success or error)
-  }
-};
+  };
 
   return (
     <div style={styles.outerWrapper}>
@@ -636,24 +643,24 @@ export default function OrderForm({
           <button onClick={() => setIsPreviewOpen(true)} style={styles.btnPreview}>
             Preview Order
           </button>
-          <button 
-  onClick={handleSaveOrder} 
-  disabled={isSaving}
-  onMouseEnter={() => setIsHovered(true)}
-  onMouseLeave={() => setIsHovered(false)}
-  style={{
-    ...styles.btnSave,
-    backgroundColor: isSaving 
-      ? '#9ca3af' // Greyed out when saving
-      : isHovered 
-        ? '#047857' // Darker emerald shade on hover
-        : styles.btnSave.backgroundColor,
-    cursor: isSaving ? 'not-allowed' : 'pointer',
-    opacity: isSaving ? 0.7 : 1
-  }}
->
-  {isSaving ? 'Saving Order...' : 'Save Order'}
-</button>
+          <button
+            onClick={handleSaveOrder}
+            disabled={isSaving}
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
+            style={{
+              ...styles.btnSave,
+              backgroundColor: isSaving
+                ? '#9ca3af' // Greyed out when saving
+                : isHovered
+                  ? '#047857' // Darker emerald shade on hover
+                  : styles.btnSave.backgroundColor,
+              cursor: isSaving ? 'not-allowed' : 'pointer',
+              opacity: isSaving ? 0.7 : 1
+            }}
+          >
+            {isSaving ? 'Saving Order...' : 'Save Order'}
+          </button>
         </div>
       </div>
 
@@ -722,7 +729,7 @@ export default function OrderForm({
             {/* Modal Footer */}
             <div style={{ backgroundColor: '#f9fafb', padding: '12px 16px', borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
               <button onClick={() => setIsPreviewOpen(false)} style={{ backgroundColor: '#4b5563', color: '#ffffff', padding: '8px 16px', borderRadius: '4px', border: 'none', cursor: 'pointer' }}>Back</button>
-              <button onClick={handleSaveOrder} style={{ backgroundColor: '#059669', color: '#ffffff', padding: '8px 16px', borderRadius: '4px', border: 'none', cursor: 'pointer' }}>Confirm & Save Order</button>
+              <button onClick={handleSaveOrder} style={{ backgroundColor: '#059669', color: '#ffffff', padding: '8px 16px', borderRadius: '4px', border: 'none', cursor: 'pointer' }}>{isSaving ? 'Saving Order...' : 'Save Order'}</button>
             </div>
           </div>
         </div>
