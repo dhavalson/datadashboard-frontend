@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
+import { useSearchParams } from 'react-router-dom';
 import { fetchProductDetails } from '../../redux/productSlice';
 import ProductTable from './productTable';
 import * as XLSX from 'xlsx';
-import { FaFileDownload, FaPlus, FaEdit, FaTrash, FaFileUpload } from 'react-icons/fa';
+import { FaFileDownload, FaPlus, FaEdit, FaTrash, FaFileUpload, FaSearch, FaRedo } from 'react-icons/fa';
 import axios from 'axios';
 import api from '../../api'
 
@@ -125,7 +126,7 @@ const generateAllColumns = (data) => {
 const ProductMaster = () => {
   const dispatch = useDispatch();
 
-  const { data = [], loading, error } = useSelector((state) => state.product || {});
+  const { productData = [], productLoading, productError } = useSelector((state) => state.product || {});
   // console.log(data);
 
   const { user } = useSelector((state) => state.auth || {});
@@ -134,17 +135,42 @@ const ProductMaster = () => {
   const [editingRow, setEditingRow] = useState(null);
   const [formData, setFormData] = useState({});
 
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchCodeName, setSearchCodeName] = useState(searchParams.get('search_code_name') || '');
+
   useEffect(() => {
     dispatch(fetchProductDetails());
   }, [dispatch, user?.id]);
 
+  const handleSearchClick = () => {
+      const newParams = {};
+      // if (fromDate) newParams.from_date = fromDate;
+      // if (toDate) newParams.to_date = toDate;
+      // if (territory) newParams.territory = territory;
+      if (searchCodeName) newParams.search_code_name = searchCodeName;
+  
+      setSearchParams(newParams);
+      // Dispatch the thunk and pass the newParams directly to it
+  dispatch(fetchProductDetails(newParams));
+    };
+  
+    const handleResetClick = () => {
+      // const { defaultFrom, defaultTo } = getDefaultDates();
+      // setFromDate(defaultFrom);
+      // setToDate(defaultTo);
+      // setTerritory('');
+      setSearchCodeName('');
+      setSearchParams({});
+      // const { defaultFrom, defaultTo } = getDefaultDates();
+    };
+
   // --- EXCEL EXPORT ---
   const handleExportExcel = () => {
-    if (!data || data.length === 0) {
-      alert('No data available to export.');
+    if (!productData || productData.length === 0) {
+      alert('No product data available to export.');
       return;
     }
-    const worksheet = XLSX.utils.json_to_sheet(data);
+    const worksheet = XLSX.utils.json_to_sheet(productData);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Product_Master');
     XLSX.writeFile(workbook, `Product_Master_Report_${new Date().toISOString().slice(0, 10)}.xlsx`);
@@ -288,10 +314,10 @@ const ProductMaster = () => {
     }
   };
 
-  if (loading) return <p style={{ padding: '20px' }}>Loading product details...</p>;
-  if (error) return <p style={{ color: 'red', padding: '20px' }}>{error}</p>;
+  if (productLoading) return <p style={{ padding: '20px' }}>Loading product details...</p>;
+  if (productError) return <p style={{ color: 'red', padding: '20px' }}>{productError}</p>;
 
-  const baseColumns = generateAllColumns(data);
+  const baseColumns = generateAllColumns(productData);
   const actionColumn = {
     key: 'actions',
     label: 'Actions',
@@ -332,13 +358,56 @@ const ProductMaster = () => {
         </div>
       </div>
 
+      {/* FILTER BAR */}
+            <div style={styles.filterBar}>
+              {/* <input
+                type="date"
+                value={formatDateToValue(fromDate)}
+                onChange={(e) => setFromDate(formatDateToDisplay(e.target.value))}
+                placeholder="DD-MM-YYYY"
+                style={styles.filterInput}
+              />
+              <input
+                type="date"
+                value={formatDateToValue(toDate)}
+                onChange={(e) => setToDate(formatDateToDisplay(e.target.value))}
+                placeholder="DD-MM-YYYY"
+                style={styles.filterInput}
+              />
+              <select
+                value={territory}
+                onChange={(e) => setTerritory(e.target.value)}
+                style={styles.filterSelect}
+              >
+                <option value="">Filter by Geo Location</option>
+                {uniqueTerritories.map((terr, idx) => (
+                  <option key={idx} value={terr}>
+                    {terr}
+                  </option>
+                ))}
+              </select> */}
+              <input
+                type="text"
+                value={searchCodeName}
+                onChange={(e) => setSearchCodeName(e.target.value)}
+                placeholder="Search by Product Code or Product Name..."
+                style={styles.filterInputWide}
+              />
+              <button onClick={handleSearchClick} style={styles.searchBtn}>
+                <FaSearch /> Search
+              </button>
+              <button onClick={handleResetClick} style={styles.resetBtn} title="Reset Filters">
+                <FaRedo /> Reset
+              </button>
+            </div>
+
       <div style={styles.tableContainer}>
         {/* <ProductTable data={data} columns={allColumns} /> */}
         <div style={styles.tableScrollWrapper}>
-          <ProductTable data={data} columns={allColumns} />
+          <ProductTable data={productData} columns={allColumns} />
         </div>
         <p style={styles.totalTextFooter}>
-          Total Results: {data.length}
+          Total Results: {productData.length}
         </p>
       </div>
 
@@ -442,6 +511,73 @@ const styles = {
     textAlign: 'center',
     color: '#374151',
     zIndex: 10,
+  },
+  filterBar: {
+    display: 'flex',
+    gap: '10px',
+    alignItems: 'center',
+    marginBottom: '12px',
+    backgroundColor: '#ebf2fb',
+    padding: '8px 12px',
+    borderRadius: '6px',
+    border: '1px solid #cbd5e1',
+    flexWrap: 'wrap',
+  },
+  // filterInput: {
+  //   backgroundColor: '#ffffff',
+  //   border: '1px solid #cbd5e1',
+  //   borderRadius: '4px',
+  //   padding: '6px 10px',
+  //   fontSize: '13px',
+  //   color: '#334155',
+  //   outline: 'none',
+  //   width: '120px',
+  //   textAlign: 'center',
+  // },
+  // filterSelect: {
+  //   backgroundColor: '#ffffff',
+  //   border: '1px solid #cbd5e1',
+  //   borderRadius: '4px',
+  //   padding: '6px 10px',
+  //   fontSize: '13px',
+  //   color: '#334155',
+  //   outline: 'none',
+  // },
+  filterInputWide: {
+    backgroundColor: '#ffffff',
+    border: '1px solid #cbd5e1',
+    borderRadius: '4px',
+    padding: '6px 10px',
+    fontSize: '13px',
+    color: '#334155',
+    outline: 'none',
+    flex: 1,
+    minWidth: '220px',
+  },
+  searchBtn: {
+    backgroundColor: '#eab308',
+    color: '#ffffff',
+    border: 'none',
+    padding: '6px 12px',
+    borderRadius: '4px',
+    fontSize: '13px',
+    fontWeight: 'bold',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '5px',
+  },
+  resetBtn: {
+    backgroundColor: '#64748b',
+    color: '#ffffff',
+    border: 'none',
+    padding: '6px 10px',
+    borderRadius: '4px',
+    fontSize: '13px',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '5px',
   },
   addBtn: { backgroundColor: '#10b981', color: '#fff', border: 'none', padding: '8px 12px', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' },
   exportBtn: { backgroundColor: '#0284c7', color: '#fff', border: 'none', padding: '8px 12px', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' },

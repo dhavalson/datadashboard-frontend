@@ -47,6 +47,7 @@ const getStatusCellStyle = (value) => {
 const ProductTable = ({ data = [], columns = [] }) => {
   // Store filter values dynamically for each column key
   const [filters, setFilters] = useState({});
+  const [selectedRow, setSelectedRow] = useState(null);
 
   const safeData = Array.isArray(data) ? data : [];
   const safeColumns = Array.isArray(columns) ? columns : [];
@@ -139,8 +140,17 @@ const ProductTable = ({ data = [], columns = [] }) => {
 
         <tbody>
           {filteredData.length > 0 ? (
-            filteredData.map((row, rowIndex) => (
-              <tr key={row.id || rowIndex}>
+            filteredData.map((row, rowIndex) => {
+              const isSelected = selectedRow === row.product_code;
+              return(
+              <tr key={row.id || rowIndex}
+                onClick={() => setSelectedRow(isSelected? null : row.product_code)}
+                  style={{
+                    backgroundColor: isSelected ? '#b0c4de' : '#ffffff', // Highlight color when selected
+                    cursor: 'pointer',
+                    transition: 'background-color 0.15s ease'
+                  }}
+                  >
                 {safeColumns.map((col) => {
                   const key = col.key ? col.key.toLowerCase() : '';
                   const rawCellVal = row[col.key] !== undefined ? row[col.key] : (row.product_name || row.product);
@@ -191,8 +201,8 @@ const ProductTable = ({ data = [], columns = [] }) => {
                     </td>
                   );
                 })}
-              </tr>
-            ))
+              </tr>)
+})
           ) : (
             <tr>
               <td colSpan={safeColumns.length || 1} style={{ textAlign: 'center', padding: '24px', color: '#64748b' }}>

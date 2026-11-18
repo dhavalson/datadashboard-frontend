@@ -41,7 +41,7 @@ const PREDEFINED_SIZE_ORDER = [
 
 const OrderFormCategoryWise = () => {
   const dispatch = useDispatch();
-  const { data = [] } = useSelector((state) => state.product || {});
+  const { productData = [] } = useSelector((state) => state.product || {});
   const { user } = useSelector((state) => state.auth || {});
 
   const [products, setProducts] = useState([]);
@@ -59,10 +59,10 @@ const OrderFormCategoryWise = () => {
   }, [dispatch, user?.id]);
 
   const activeProducts = useMemo(() => {
-      return data.filter((product) => 
+      return productData.filter((product) => 
         String(product?.status || '').trim().toLowerCase() === 'active'
       );
-    }, [data]);
+    }, [productData]);
 
   const primaryCategories = Array.isArray(activeProducts)
     ? [...new Set(activeProducts.map((item) => item?.primary_category).filter(Boolean))]

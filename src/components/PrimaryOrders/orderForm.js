@@ -1,24 +1,25 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import * as XLSX from 'xlsx';
-import axios from 'axios';
 import '../../app.css';
 import { fetchNextSequence } from '../../redux/primaryOrderSlice';
 import { useSelector, useDispatch } from 'react-redux';
-import api from '../../api'
-
-// const SIZES = ['S', 'M', 'L', 'XL', 'XXL', '3XL', '4XL', '5XL'];
+import api from '../../api';
 
 export default function OrderForm({
   INITIAL_PRODUCTS = [],
   DISTRIBUTORS = [],
   DISTRI_ALLOWED_GROUP = {},
-  SIZES = []
+  SIZES = [],
+  onSaveComplete
 }) {
   // Component States
   const [selectedDistributor, setSelectedDistributor] = useState(null);
   const [orderCounter, setOrderCounter] = useState(1);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [quantities, setQuantities] = useState({});
+  const [isSaving, setIsSaving] = useState(false);
+  const [isHovered, setIsHovered] = useState(false); // 👈 State for hover effect
+  
   const [filters, setFilters] = useState({ primary_category: '', secondary_category: '', display_category: '', standard_unit: '' });
 
   const { paddedCounter, sequenceLoading, error } = useSelector(
@@ -27,89 +28,89 @@ export default function OrderForm({
 
   const dispatch = useDispatch();
 
+  // Fetch next sequence on mount
+  useEffect(() => {
+    dispatch(fetchNextSequence());
+  }, [dispatch]);
 
+  const orderNumber = useMemo(() => {
+    return `XYPO/${paddedCounter || String(orderCounter).padStart(5, '0')}`;
+  }, [orderCounter, paddedCounter]);
 
-// Memoized Unfiltered Products Matrix (Carries full product schema, ignoring text filters)
-const unfilteredProductsMatrix = useMemo(() => {
-  if (!selectedDistributor) return [];
+  // Memoized Unfiltered Products Matrix
+  const unfilteredProductsMatrix = useMemo(() => {
+    if (!selectedDistributor) return [];
 
-  const allowedCategoriesRaw = selectedDistributor?.allowed_category || [];
-  const allowedGroupsForCurrentDist = (
-    Array.isArray(allowedCategoriesRaw)
-      ? allowedCategoriesRaw
-      : String(allowedCategoriesRaw).split(',')
-  )
-    .map((cat) => String(cat).trim().toLowerCase())
-    .filter(Boolean);
+    const allowedCategoriesRaw = selectedDistributor?.allowed_category || [];
+    const allowedGroupsForCurrentDist = (
+      Array.isArray(allowedCategoriesRaw)
+        ? allowedCategoriesRaw
+        : String(allowedCategoriesRaw).split(',')
+    )
+      .map((cat) => String(cat).trim().toLowerCase())
+      .filter(Boolean);
 
-  const productsArray = Array.isArray(INITIAL_PRODUCTS)
-    ? INITIAL_PRODUCTS
-    : INITIAL_PRODUCTS?.data || [];
+    const productsArray = Array.isArray(INITIAL_PRODUCTS)
+      ? INITIAL_PRODUCTS
+      : INITIAL_PRODUCTS?.data || [];
 
-  // Filter ONLY by distributor security guard, ignoring search box filters
-  const rawFilteredRows = productsArray.filter((product) => {
-    const productPrimaryCat = String(product?.primary_category || '').trim().toLowerCase();
-    return (
-      allowedGroupsForCurrentDist.length === 0 ||
-      allowedGroupsForCurrentDist.includes(productPrimaryCat)
-    );
-  });
+    const rawFilteredRows = productsArray.filter((product) => {
+      const productPrimaryCat = String(product?.primary_category || '').trim().toLowerCase();
+      return (
+        allowedGroupsForCurrentDist.length === 0 ||
+        allowedGroupsForCurrentDist.includes(productPrimaryCat)
+      );
+    });
 
-  const groupedMatrixMap = {};
+    const groupedMatrixMap = {};
 
-  rawFilteredRows.forEach((row) => {
-    const groupKey = row.display_category || row.product_name;
+    rawFilteredRows.forEach((row) => {
+      const groupKey = row.display_category;
 
-    if (!groupedMatrixMap[groupKey]) {
-      groupedMatrixMap[groupKey] = {
-        id: groupKey,
-        srNo: Object.keys(groupedMatrixMap).length + 1,
-        productDivision: row.product_division || '',
-        primaryCategory: row.primary_category || '',
-        secondaryCategory: row.secondary_category || '',
-        displayCategory: row.display_category || '',
-        standardUnit: row.standard_unit || '',
-        productName: row.product_name || '',
-        hsnCode: row.hsn_code || '',
-        ptd: Number(row.ptd) || 0,
-        mrp: Number(row.mrp) || 0,
-        conversion_factor: row.standard_unit_conversion_factor || row.conversion_factor || 5,
-        colour: row.colour,
-        alternateCategory: row.alternate_category,
-        std_unit: row.standard_unit,
-        gst: row.gst,
-        // tax_value:row.tax_value,
-  
-        sizeIdMap: {},
-        allowedSizes: [],
-        activeSizes: []
-      };
-    }
-
-    const sizeVariant = (row.variant || '').trim();
-    const variantKey = row.product_code || row.id;
-
-    if (sizeVariant) {
-      groupedMatrixMap[groupKey].sizeIdMap[sizeVariant] = variantKey;
-
-      if (!groupedMatrixMap[groupKey].allowedSizes.includes(sizeVariant)) {
-        groupedMatrixMap[groupKey].allowedSizes.push(sizeVariant);
+      if (!groupedMatrixMap[groupKey]) {
+        groupedMatrixMap[groupKey] = {
+          id: groupKey,
+          srNo: Object.keys(groupedMatrixMap).length + 1,
+          productDivision: row.product_division || '',
+          primaryCategory: row.primary_category || '',
+          secondaryCategory: row.secondary_category || '',
+          displayCategory: row.display_category || '',
+          standardUnit: row.standard_unit || '',
+          hsnCode: row.hsn_code || '',
+          ptd: Number(row.ptd) || 0,
+          mrp: Number(row.mrp) || 0,
+          conversion_factor: row.standard_unit_conversion_factor || row.conversion_factor || 5,
+          colour: row.colour,
+          alternateCategory: row.alternate_category,
+          std_unit: row.standard_unit,
+          gst: row.gst,
+          sizeIdMap: {},
+          allowedSizes: [],
+          activeSizes: []
+        };
       }
 
-      if (
-        row.status === 'Active' &&
-        !groupedMatrixMap[groupKey].activeSizes.includes(sizeVariant)
-      ) {
-        groupedMatrixMap[groupKey].activeSizes.push(sizeVariant);
+      const sizeVariant = (row.variant || '').trim();
+      const variantKey = row.product_code || row.id;
+
+      if (sizeVariant) {
+        groupedMatrixMap[groupKey].sizeIdMap[sizeVariant] = variantKey;
+
+        if (!groupedMatrixMap[groupKey].allowedSizes.includes(sizeVariant)) {
+          groupedMatrixMap[groupKey].allowedSizes.push(sizeVariant);
+        }
+
+        if (
+          row.status === 'Active' &&
+          !groupedMatrixMap[groupKey].activeSizes.includes(sizeVariant)
+        ) {
+          groupedMatrixMap[groupKey].activeSizes.push(sizeVariant);
+        }
       }
-    }
-  });
+    });
 
-  return Object.values(groupedMatrixMap);
-}, [INITIAL_PRODUCTS, selectedDistributor]);
-
-
-
+    return Object.values(groupedMatrixMap);
+  }, [INITIAL_PRODUCTS, selectedDistributor]);
 
   // Automatically select the first distributor ONLY once when DISTRIBUTORS loads
   useEffect(() => {
@@ -130,116 +131,97 @@ const unfilteredProductsMatrix = useMemo(() => {
     }
   }, [INITIAL_PRODUCTS.length]);
 
-// Memoized Products Matrix mapped to productmaster schema
-const groupedProductsMatrix = useMemo(() => {
-  if (!selectedDistributor) return [];
+  // Memoized Products Matrix mapped to productmaster schema
+  const groupedProductsMatrix = useMemo(() => {
+    if (!selectedDistributor) return [];
 
-  // 1. Extract directly from selectedDistributor object fetched from DB
-  const allowedCategoriesRaw = selectedDistributor?.allowed_category || [];
+    const allowedCategoriesRaw = selectedDistributor?.allowed_category || [];
+    const allowedGroupsForCurrentDist = (
+      Array.isArray(allowedCategoriesRaw)
+        ? allowedCategoriesRaw
+        : String(allowedCategoriesRaw).split(',')
+    )
+      .map((cat) => String(cat).trim().toLowerCase())
+      .filter(Boolean);
 
-  // 2. Normalize allowed categories (handles Postgres native array OR comma-separated string)
-  const allowedGroupsForCurrentDist = (
-    Array.isArray(allowedCategoriesRaw)
-      ? allowedCategoriesRaw
-      : String(allowedCategoriesRaw).split(',')
-  )
-    .map((cat) => String(cat).trim().toLowerCase())
-    .filter(Boolean);
+    const productsArray = Array.isArray(INITIAL_PRODUCTS)
+      ? INITIAL_PRODUCTS
+      : INITIAL_PRODUCTS?.data || [];
 
-  // 3. Extract products safely
-  const productsArray = Array.isArray(INITIAL_PRODUCTS)
-    ? INITIAL_PRODUCTS
-    : INITIAL_PRODUCTS?.data || [];
+    const rawFilteredRows = productsArray.filter((product) => {
+      const productPrimaryCat = String(product?.primary_category || '').trim().toLowerCase();
+      const passesDistributorGuard =
+        allowedGroupsForCurrentDist.length === 0 ||
+        allowedGroupsForCurrentDist.includes(productPrimaryCat);
 
-  // 4. Single-pass filtering
-  const rawFilteredRows = productsArray.filter((product) => {
-    // Read the Primary Category from the product
-    const productPrimaryCat = String(product?.primary_category || '').trim().toLowerCase();
+      const matchesSecondaryCategory = String(product?.secondary_category || '')
+        .toLowerCase()
+        .includes(String(filters?.secondary_category || '').toLowerCase());
 
-    // 🔒 DISTRIBUTOR GUARD:
-    // If allowedGroupsForCurrentDist is empty (or null in DB), length === 0, allowing ALL categories.
-    // Otherwise, check if current product's primary category is included.
-    const passesDistributorGuard =
-      allowedGroupsForCurrentDist.length === 0 ||
-      allowedGroupsForCurrentDist.includes(productPrimaryCat);
+      const matchesDisplayCategory = String(product?.display_category || '')
+        .toLowerCase()
+        .includes(String(filters?.display_category || '').toLowerCase());
 
-    // Case-insensitive search bar filters
-    const matchesPrimaryCategory = String(product?.primary_category || '')
-      .toLowerCase()
-      .includes(String(filters?.primary_category || '').toLowerCase());
+      const matchesStandardUnit = String(product?.standard_unit || '')
+        .toLowerCase()
+        .includes(String(filters?.standard_unit || '').toLowerCase());
 
-    const matchesSecondaryCategory = String(product?.secondary_category || '')
-      .toLowerCase()
-      .includes(String(filters?.secondary_category || '').toLowerCase());
+      return (
+        passesDistributorGuard &&
+        matchesSecondaryCategory &&
+        matchesDisplayCategory &&
+        matchesStandardUnit
+      );
+    });
 
-    const matchesDisplayCategory = String(product?.display_category || '')
-      .toLowerCase()
-      .includes(String(filters?.display_category || '').toLowerCase());
+    const groupedMatrixMap = {};
 
-    const matchesStandardUnit = String(product?.standard_unit || '')
-      .toLowerCase()
-      .includes(String(filters?.standard_unit || '').toLowerCase());      
+    rawFilteredRows.forEach((row) => {
+      const groupKey = row.display_category || row.product_name;
 
-    return (
-      passesDistributorGuard &&
-      matchesPrimaryCategory &&
-      matchesSecondaryCategory &&
-      matchesDisplayCategory &&
-      matchesStandardUnit
-    );
-  });
-
-  // 5. Matrix Grouping Logic
-  const groupedMatrixMap = {};
-
-  rawFilteredRows.forEach((row) => {
-    const groupKey = row.display_category || row.product_name;
-
-    if (!groupedMatrixMap[groupKey]) {
-      groupedMatrixMap[groupKey] = {
-        id: groupKey,
-        srNo: Object.keys(groupedMatrixMap).length + 1,
-        productDivision: row.product_division || '',
-        primaryCategory: row.primary_category || '',
-        secondaryCategory: row.secondary_category || '',
-        displayCategory: row.display_category || '',
-        standardUnit: row.standard_unit || '',
-        productName: row.product_name || '',
-        hsnCode: row.hsn_code || '',
-        ptd: Number(row.ptd) || 0,
-        mrp: Number(row.mrp) || 0,
-        conversion_factor: row.standard_unit_conversion_factor || row.conversion_factor || 5,
-        colour: row.colour,
-        alternateCategory: row.alternate_category,
-        std_unit: row.standard_unit,
-        sizeIdMap: {},
-        allowedSizes: [],
-        activeSizes: []
-      };
-    }
-
-    const sizeVariant = (row.variant || '').trim();
-    const variantKey = row.product_code || row.id;
-
-    if (sizeVariant) {
-      groupedMatrixMap[groupKey].sizeIdMap[sizeVariant] = variantKey;
-
-      if (!groupedMatrixMap[groupKey].allowedSizes.includes(sizeVariant)) {
-        groupedMatrixMap[groupKey].allowedSizes.push(sizeVariant);
+      if (!groupedMatrixMap[groupKey]) {
+        groupedMatrixMap[groupKey] = {
+          id: groupKey,
+          srNo: Object.keys(groupedMatrixMap).length + 1,
+          productDivision: row.product_division || '',
+          primaryCategory: row.primary_category || '',
+          secondaryCategory: row.secondary_category || '',
+          displayCategory: row.display_category || '',
+          standardUnit: row.standard_unit || '',
+          hsnCode: row.hsn_code || '',
+          ptd: Number(row.ptd) || 0,
+          mrp: Number(row.mrp) || 0,
+          conversion_factor: row.standard_unit_conversion_factor || row.conversion_factor || 5,
+          colour: row.colour,
+          alternateCategory: row.alternate_category,
+          std_unit: row.standard_unit,
+          sizeIdMap: {},
+          allowedSizes: [],
+          activeSizes: []
+        };
       }
 
-      if (
-        row.status === 'Active' &&
-        !groupedMatrixMap[groupKey].activeSizes.includes(sizeVariant)
-      ) {
-        groupedMatrixMap[groupKey].activeSizes.push(sizeVariant);
+      const sizeVariant = (row.variant || '').trim();
+      const variantKey = row.product_code || row.id;
+
+      if (sizeVariant) {
+        groupedMatrixMap[groupKey].sizeIdMap[sizeVariant] = variantKey;
+
+        if (!groupedMatrixMap[groupKey].allowedSizes.includes(sizeVariant)) {
+          groupedMatrixMap[groupKey].allowedSizes.push(sizeVariant);
+        }
+
+        if (
+          row.status === 'Active' &&
+          !groupedMatrixMap[groupKey].activeSizes.includes(sizeVariant)
+        ) {
+          groupedMatrixMap[groupKey].activeSizes.push(sizeVariant);
+        }
       }
-    }
-  });
+    });
 
-  return Object.values(groupedMatrixMap);
-}, [filters, INITIAL_PRODUCTS, selectedDistributor]);
-
+    return Object.values(groupedMatrixMap);
+  }, [filters, INITIAL_PRODUCTS, selectedDistributor]);
 
   // Reset search filters on distributor change
   useEffect(() => {
@@ -254,14 +236,6 @@ const groupedProductsMatrix = useMemo(() => {
     return `${dd}/${mm}/${yyyy}`;
   }, []);
 
-  useEffect(() => {
-    dispatch(fetchNextSequence());
-  }, [dispatch]);
-
-  const orderNumber = useMemo(() => {
-    return `XYPO/${paddedCounter || String(orderCounter).padStart(5, '0')}`;
-  }, [orderCounter, paddedCounter]);
-
   const handleQtyChange = (targetVariantKey, value) => {
     setQuantities((prev) => ({
       ...prev,
@@ -274,53 +248,22 @@ const groupedProductsMatrix = useMemo(() => {
 
   const getRowAmount = (product) => product.ptd * getRowTotalQty(product);
 
-  // const grandTotalQty = useMemo(
-  //   () => Object.values(quantities).reduce((sum, qty) => sum + (Number(qty) || 0), 0),
-  //   [quantities]
-  // );
-
-  // const grandTotalAmount = useMemo(
-  //   // () => groupedProductsMatrix.reduce((sum, p) => sum + getRowAmount(p), 0),
-  //   () => Object.values(quantities).reduce((sum, p) => sum + getRowAmount(p), 0),
-  //   [quantities]//, groupedProductsMatrix]
-  // );
-
- // 1. Calculate grand total quantity across ALL products (unfiltered)
-  // const grandTotalQty = useMemo(() => {
-  //   return unfilteredProductsMatrix.reduce((sum, product) => {
-  //     return sum + SIZES.reduce((sSum, s) => sSum + (Number(quantities[product.sizeIdMap?.[s]]) || 0), 0);
-  //   }, 0);
-  // }, [quantities, unfilteredProductsMatrix, SIZES]);
-
-  // 1. Calculate grand total quantity with conditional unit check
-  // console.log(unfilteredProductsMatrix);
-  
   const grandTotalQty = useMemo(() => {
     return unfilteredProductsMatrix.reduce((sum, product) => {
-      // Get the conversion factor for this product (default to 5 if missing)
       const conversionFactor = Number(product.conversion_factor);
-      
-      // Check the standard unit type (normalized to lowercase for safety)
       const stdUnit = String(product.standardUnit).trim().toLowerCase();
-      // console.log(stdUnit);
-      
 
-      // Sum up sizes for this product row
       const rowQty = SIZES.reduce((sSum, s) => {
         const qtyInput = Number(quantities[product.sizeIdMap?.[s]]) || 0;
         return sSum + qtyInput;
       }, 0);
 
-      // Apply your conditional logic based on standard unit
       let adjustedRowQty = 0;
       if (stdUnit === 'box') {
-        // If standard unit is Box, sum = sum + qty
         adjustedRowQty = rowQty;
       } else if (stdUnit === 'pcs' || stdUnit === 'piece') {
-        // If standard unit is Pcs, sum = sum + (qty / conversion_factor)
         adjustedRowQty = conversionFactor > 0 ? rowQty / conversionFactor : rowQty;
       } else {
-        // Fallback default if unit is something else
         adjustedRowQty = rowQty;
       }
 
@@ -328,7 +271,6 @@ const groupedProductsMatrix = useMemo(() => {
     }, 0);
   }, [quantities, unfilteredProductsMatrix, SIZES]);
 
-  // 2. Calculate grand total amount across ALL products (unfiltered)
   const grandTotalAmount = useMemo(() => {
     return unfilteredProductsMatrix.reduce((sum, product) => {
       const rowQty = SIZES.reduce((sSum, s) => sSum + (Number(quantities[product.sizeIdMap?.[s]]) || 0), 0);
@@ -337,18 +279,10 @@ const groupedProductsMatrix = useMemo(() => {
     }, 0);
   }, [quantities, unfilteredProductsMatrix, SIZES]);
 
-
-
-
-
-
   const activeOrderItems = useMemo(
-    // () => groupedProductsMatrix.filter((p) => getRowTotalQty(p) > 0),
     () => unfilteredProductsMatrix.filter((p) => getRowTotalQty(p) > 0),
-    [quantities, groupedProductsMatrix]
+    [quantities, unfilteredProductsMatrix]
   );
-  // console.log(activeOrderItems);
-  
 
   const generatePayloadDataStructure = () => {
     const today = new Date();
@@ -357,8 +291,7 @@ const groupedProductsMatrix = useMemo(() => {
 
     const items = [];
 
-    // groupedProductsMatrix.forEach((product) => {
-      activeOrderItems.forEach((product) => {
+    activeOrderItems.forEach((product) => {
       SIZES.forEach((size) => {
         const variantKey = product.sizeIdMap[size];
         const qtyValue = Number(quantities[variantKey]) || 0;
@@ -371,10 +304,9 @@ const groupedProductsMatrix = useMemo(() => {
           const mrp = Number(product.mrp) || 0;
           const ptr = Number(product.ptr) || ptd;
           const taxableValue = Number((ptd * qtyValue).toFixed(2));
-          
-          const gst = Number(product.gst);
-          const tax_value = Number((gst/100 * taxableValue).toFixed(2));
-          const total_value = Number((tax_value + taxableValue).toFixed(2))
+          const gst = Number(product.gst || 0);
+          const tax_value = Number((gst / 100 * taxableValue).toFixed(2));
+          const total_value = Number((tax_value + taxableValue).toFixed(2));
 
           items.push({
             order_no: orderNumber,
@@ -382,17 +314,7 @@ const groupedProductsMatrix = useMemo(() => {
             order_time: formattedTime,
             distributor_code: selectedDistributor?.code || selectedDistributor?.distributor_code || '',
             distributor_name: selectedDistributor?.name || selectedDistributor?.distributor_name || '',
-            // primary_category: product.primaryCategory,
-            // secondary_category: product.secondaryCategory,
-            // display_category: product.displayCategory,
-            // standard_unit: product.standardUnit,
-            product_name: product.productName || product.displayCategory,
             product_code: variantKey,
-            // variant: size,
-            // product_attribute_text1: product.attribute1 || `${product.displayCategory}_${size}`,
-            // product_attribute_text2: product.attribute2 || null,
-            // colour: product.colour || null,
-            // alternate_category: product.alternateCategory || null,
             qty: qtyValue,
             std_unit: product.standard_unit || product.std_unit,
             qty_pcs: qtyPcs,
@@ -401,13 +323,10 @@ const groupedProductsMatrix = useMemo(() => {
             mrp: mrp,
             ptd: ptd,
             ptr: ptr,
-            // cgst: 0,
-            // sgst: 0,
-            // igst: 0,
             taxable_value: taxableValue,
-            gst:gst,
-            tax_value:tax_value,
-            total_value:total_value
+            gst: gst,
+            tax_value: tax_value,
+            total_value: total_value
           });
         }
       });
@@ -421,7 +340,7 @@ const groupedProductsMatrix = useMemo(() => {
       distributorCode: selectedDistributor?.code || selectedDistributor?.distributor_code || '',
       territory: selectedDistributor?.territory || '',
       totalQty: grandTotalQty,
-      totalAmount: grandTotalAmount,
+      taxableValue: grandTotalAmount,
       items
     };
   };
@@ -435,17 +354,14 @@ const groupedProductsMatrix = useMemo(() => {
       'Order Time': item.order_time,
       'Distributor Code': item.distributor_code,
       'Distributor Name': item.distributor_name,
-      // 'Primary Category': item.primary_category,
-      // 'Secondary Category': item.secondary_category,
-      // 'Display Category': item.display_category,
-      'Standard Unit': item.standard_unit,
-      'Product Name': item.product_name,
+      'Standard Unit': item.std_unit,
       'Product Code': item.product_code,
-      // 'Variant': item.variant,
       'Qty (Boxes)': item.qty_boxes,
       'Qty (Pcs)': item.qty_pcs,
       'MRP': item.mrp,
       'PTD': item.ptd,
+      'Taxable Value': item.taxable_value,
+      'tax':item.tax_value,
       'Total Value': item.total_value
     }));
 
@@ -466,8 +382,8 @@ const groupedProductsMatrix = useMemo(() => {
         'Distributor Name': payload.distributor,
         'Distributor Code': payload.distributorCode,
         'Territory': payload.territory,
-        'Total Qty': payload.totalQty,
-        'Total Amount': payload.totalAmount
+        'Total Qty (Box)': payload.totalQty,
+        'Taxable Value': payload.taxableValue
       }
     ]);
     XLSX.utils.book_append_sheet(workbook, worksheetSummary, 'Order Summary');
@@ -478,34 +394,45 @@ const groupedProductsMatrix = useMemo(() => {
 
   const handleSaveOrder = async () => {
     const payload = generatePayloadDataStructure();
-    console.log(payload)
 
     if (!payload.items || payload.items.length === 0) {
       alert('Cannot save an empty order!');
       return;
     }
 
-    try {
-      // const response = await axios.post('http://localhost:5000/api/primaryorders/primaryorders/bulk',
-      const response = await api.post('/primaryorders/primaryorders/bulk',
-        payload.items,
-        { withCredentials: true }
-      );
+    setIsSaving(true); // 👈 Disable button and show loading state
+  try {
+    const response = await api.post('/primaryorders/primaryorders/bulk', payload.items, {
+      withCredentials: true
+    });
 
-      if (response.data.success) {
-        runExcelExportEngine(payload);
-        alert(`Success: ${response.data.message}`);
-        setOrderCounter((prev) => prev + 1);
-        setIsPreviewOpen(false);
-      }
-    } catch (error) {
-      console.error('Save order error:', error);
-      alert(
-        'Database error saving order: ' +
-        (error.response?.data?.error || error.response?.data?.message || error.message)
-      );
+    if (response.data.success) {
+      runExcelExportEngine(payload);
+      alert(`Success: ${response.data.message || 'Order saved successfully!'}`);
+      setOrderCounter((prev) => prev + 1);
+      setIsPreviewOpen(false);
+
+      const resetQty = {};
+      const productsArray = Array.isArray(INITIAL_PRODUCTS) ? INITIAL_PRODUCTS : INITIAL_PRODUCTS?.data || [];
+      productsArray.forEach((p) => {
+        const variantKey = p.product_code || p.id;
+        resetQty[variantKey] = '';
+      });
+      setQuantities(resetQty);
+
+
+      if (onSaveComplete) onSaveComplete();
     }
-  };
+  } catch (error) {
+    console.error('Save order error:', error);
+    alert(
+      'Database error saving order: ' +
+      (error.response?.data?.error || error.response?.data?.message || error.message)
+    );
+  } finally {
+    setIsSaving(false); // 👈 Re-enable button after request completes (success or error)
+  }
+};
 
   return (
     <div style={styles.outerWrapper}>
@@ -525,6 +452,7 @@ const groupedProductsMatrix = useMemo(() => {
                 )
               }
             >
+              <option value="" disabled>Select Distributor</option>
               {DISTRIBUTORS.map((d) => (
                 <option key={d.id || d.distributor_code} value={d.distributor_name}>
                   {d.distributor_name}
@@ -567,7 +495,7 @@ const groupedProductsMatrix = useMemo(() => {
         {/* METRICS SUMMARY DISPLAY STRIP */}
         <div style={styles.summaryStrip}>
           <div style={styles.badgeBlack}>
-            <span>Order Qty:</span>
+            <span>Order Qty (Box):</span>
             <span style={{ color: '#facc15', fontWeight: 900 }}>{grandTotalQty.toFixed(2)}</span>
           </div>
           <div style={styles.badgeSlate}>
@@ -595,7 +523,6 @@ const groupedProductsMatrix = useMemo(() => {
               </tr>
               <tr style={styles.thStickyRow2}>
                 <th style={{ padding: '4px', width: '36px', borderRight: '1px solid #d1d5db' }}>Sr. No</th>
-                {/* <th style={{ padding: '4px 12px', width: '128px', textAlign: 'left', borderRight: '1px solid #d1d5db' }}>Primary Category</th> */}
                 <th style={{ padding: '4px 12px', width: '172px', textAlign: 'left', borderRight: '1px solid #d1d5db' }}>Secondary Category</th>
                 <th style={{ padding: '4px 12px', width: '352px', textAlign: 'left', borderRight: '1px solid #d1d5db' }}>Display Category</th>
                 <th style={{ padding: '4px 12px', width: '28px', textAlign: 'left', borderRight: '1px solid #d1d5db' }}>Standard Unit</th>
@@ -612,15 +539,6 @@ const groupedProductsMatrix = useMemo(() => {
               {/* Dynamic Search Filters */}
               <tr style={styles.thStickyRow3}>
                 <td style={{ borderRight: '1px solid #e5e7eb' }}></td>
-                {/* <td style={{ padding: '4px', borderRight: '1px solid #e5e7eb' }}>
-                  <input
-                    type="text"
-                    placeholder="Filter Primary..."
-                    style={styles.filterInput}
-                    value={filters.primary_category || ''}
-                    onChange={(e) => setFilters((p) => ({ ...p, primary_category: e.target.value }))}
-                  />
-                </td> */}
                 <td style={{ padding: '4px', borderRight: '1px solid #e5e7eb' }}>
                   <input
                     type="text"
@@ -666,7 +584,6 @@ const groupedProductsMatrix = useMemo(() => {
                   return (
                     <tr key={product.id} style={{ borderBottom: '1px solid #d1d5db', fontWeight: 500, color: '#1f2937' }}>
                       <td style={{ ...styles.tdCell, textAlign: 'center', padding: '10px 0' }}>{product.srNo}</td>
-                      {/* <td style={{ ...styles.tdCell, fontWeight: 'bold' }}>{product.primaryCategory}</td> */}
                       <td style={{ ...styles.tdCell, color: '#4b5563' }}>{product.secondaryCategory}</td>
                       <td style={{ ...styles.tdCell, backgroundColor: 'rgba(239, 246, 255, 0.4)', color: '#1e3a8a', fontWeight: 600 }}>
                         {product.displayCategory}
@@ -719,9 +636,24 @@ const groupedProductsMatrix = useMemo(() => {
           <button onClick={() => setIsPreviewOpen(true)} style={styles.btnPreview}>
             Preview Order
           </button>
-          <button onClick={handleSaveOrder} style={styles.btnSave}>
-            Save Order
-          </button>
+          <button 
+  onClick={handleSaveOrder} 
+  disabled={isSaving}
+  onMouseEnter={() => setIsHovered(true)}
+  onMouseLeave={() => setIsHovered(false)}
+  style={{
+    ...styles.btnSave,
+    backgroundColor: isSaving 
+      ? '#9ca3af' // Greyed out when saving
+      : isHovered 
+        ? '#047857' // Darker emerald shade on hover
+        : styles.btnSave.backgroundColor,
+    cursor: isSaving ? 'not-allowed' : 'pointer',
+    opacity: isSaving ? 0.7 : 1
+  }}
+>
+  {isSaving ? 'Saving Order...' : 'Save Order'}
+</button>
         </div>
       </div>
 
@@ -730,36 +662,23 @@ const groupedProductsMatrix = useMemo(() => {
         <div style={styles.modalOverlay}>
           <div style={styles.modalContent}>
             {/* Modal Header */}
-            <div style={{ backgroundColor: '#0f172a', color: '#ffffff', padding: '16px',  justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={{display: 'flex', justifyContent:'space-between'}}>
+            <div style={{ backgroundColor: '#0f172a', color: '#ffffff', padding: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center' }}>
                 <h3 style={{ fontSize: '18px', fontWeight: 'bold', margin: 0 }}>Order Review Blueprint</h3>
-                <button onClick={() => setIsPreviewOpen(false)} style={styles.closeBtn}>✕</button>
               </div>
               <div>
-                <h3 style={{
-                  fontSize: '15px',
-                  fontWeight: 'bold',
-                  margin: 0,
-                  width: '100%',
-                  marginLeft: 'auto',       // Pushes heading block to the far right inside parent flex container
-                  display: 'flex',
-                  justifyContent: 'flex-end', // Aligns child flex elements flush right
-                  alignItems: 'center',
-                  gap: '12px',
-                  textAlign: 'right'        // Aligns raw text content right
-                }}>
-                  <span style={{ backgroundColor: '#1e293b', padding: '4px 10px', borderRadius: '4px', color: '#e2e8f0' }}>
-                    Order Qty: <strong style={{ color: '#ffffff' }}>{grandTotalQty.toFixed(2)}</strong>
-                  </span>
-                  <span style={{ backgroundColor: '#1e293b', padding: '4px 10px', borderRadius: '4px', color: '#e2e8f0' }}>
-                    Order Amount: <strong style={{ color: '#10b981' }}>₹{Number(grandTotalAmount || 0).toFixed(2)}</strong>
-                  </span>
-                </h3>
-                {/* <h3 style={{ fontSize: '16px', fontWeight: 'bold', margin: 0 }}>Order Amount: ₹ {grandTotalAmount.toLocaleString('en-IN', { minimumFractionDigits: 1 })}</h3> */}
-
-                {/* <p style={{ fontSize: '11px', color: '#9ca3af', margin: 0 }}>Active item values flagged for database transaction insertion</p> */}
+                <button onClick={() => setIsPreviewOpen(false)} style={styles.closeBtn}>✕</button>
               </div>
+            </div>
 
+            {/* Subheader with Qty and Amount summary */}
+            <div style={{ backgroundColor: '#1e293b', padding: '10px 16px', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '12px' }}>
+              <span style={{ backgroundColor: '#334155', padding: '4px 10px', borderRadius: '4px', color: '#e2e8f0', fontSize: '14px' }}>
+                Order Qty (Box): <strong style={{ color: '#ffffff' }}>{grandTotalQty.toFixed(2)}</strong>
+              </span>
+              <span style={{ backgroundColor: '#334155', padding: '4px 10px', borderRadius: '4px', color: '#e2e8f0', fontSize: '14px' }}>
+                Order Amount: <strong style={{ color: '#10b981' }}>₹{Number(grandTotalAmount || 0).toFixed(2)}</strong>
+              </span>
             </div>
 
             {/* Modal Body with Horizontal and Vertical Scroll */}
@@ -772,6 +691,7 @@ const groupedProductsMatrix = useMemo(() => {
                     <tr style={{ backgroundColor: '#f1f5f9', fontWeight: 'bold', textAlign: 'center' }}>
                       <th style={{ padding: '10px 8px', borderBottom: '1px solid #d1d5db', whiteSpace: 'nowrap' }}>Sr.</th>
                       <th style={{ textAlign: 'left', padding: '10px 12px', borderBottom: '1px solid #d1d5db', minWidth: '160px', whiteSpace: 'nowrap' }}>Display Category</th>
+                      <th style={{ padding: '10px 8px', borderBottom: '1px solid #d1d5db', whiteSpace: 'nowrap' }}>Standard Unit</th>
                       <th style={{ padding: '10px 8px', borderBottom: '1px solid #d1d5db', whiteSpace: 'nowrap' }}>PTD (₹)</th>
                       {SIZES.map((s) => (
                         <th key={s} style={{ padding: '10px 8px', borderBottom: '1px solid #d1d5db', whiteSpace: 'nowrap' }}>{s}</th>
@@ -785,6 +705,7 @@ const groupedProductsMatrix = useMemo(() => {
                       <tr key={product.id} style={{ borderBottom: '1px solid #e5e7eb', textAlign: 'center' }}>
                         <td style={{ padding: '10px 8px' }}>{idx + 1}</td>
                         <td style={{ textAlign: 'left', padding: '10px 12px', fontWeight: 600 }}>{product.id}</td>
+                        <td style={{ textAlign: 'left', padding: '10px 12px', fontWeight: 600 }}>{product.std_unit}</td>
                         <td style={{ padding: '10px 8px' }}>{product.ptd?.toFixed(2)}</td>
                         {SIZES.map((s) => (
                           <td key={s} style={{ padding: '10px 8px' }}>{quantities[product.sizeIdMap?.[s]] || 0}</td>
@@ -880,7 +801,6 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'flex-end',
-    justify: 'flex-end',
     borderBottom: '1px solid #d1d5db',
     gap: '12px'
   },
@@ -972,9 +892,8 @@ const styles = {
     padding: '12px 24px',
     borderTop: '2px solid #d1d5db',
     display: 'flex',
-    justify: 'flex-end',
-    gap: '12px',
-    justifyContent: 'flex-end'
+    justifyContent: 'flex-end',
+    gap: '12px'
   },
   btnPreview: {
     backgroundColor: '#334155',
@@ -1002,23 +921,22 @@ const styles = {
     left: 0,
     width: '100vw',
     height: '100vh',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)', // Dark translucent backdrop
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     display: 'flex',
-    justifyContent: 'center', // Centers horizontally across full screen
-    alignItems: 'center',     // Centers vertically
-    zIndex: 1000,             // Keeps it on top of sidebar and order form
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000
   },
   modalContent: {
     backgroundColor: '#ffffff',
     borderRadius: '8px',
-    width: '100vw',
-    maxWidth: '1100px',        // Adjust max-width as needed
+    width: '90vw',
+    maxWidth: '1100px',
     boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-    overflow: 'hidden',
+    overflow: 'hidden'
   },
   closeBtn: {
-    // backgroundColor: 'transparent',
-    backgroundColor: 'none',
+    backgroundColor: 'transparent',
     color: '#ffffff',
     border: 'none',
     fontSize: '18px',

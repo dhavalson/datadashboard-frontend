@@ -41,7 +41,7 @@ const PREDEFINED_SIZE_ORDER = [
 
 const OrderFormBoxPcsWise = () => {
   const dispatch = useDispatch();
-  const { data = [] } = useSelector((state) => state.product || {});
+  const { productData = [] } = useSelector((state) => state.product || {});
   const { user } = useSelector((state) => state.auth || {});
 
   const [products, setProducts] = useState([]);
@@ -54,23 +54,19 @@ const OrderFormBoxPcsWise = () => {
   const allowedGroupsForCurrentDist = DISTRI_ALLOWED_GROUP[distributorName] || [];
 
   const activeProducts = useMemo(() => {
-    return data.filter((product) => 
+    return productData.filter((product) => 
       String(product?.status || '').trim().toLowerCase() === 'active'
     );
-  }, [data]);
+  }, [productData]);
 
   useEffect(() => {
     dispatch(fetchDistributorDetails());
     dispatch(fetchProductDetails());
   }, [dispatch, user?.id]);
 
-  const boxPcs = Array.isArray(data)
-    ? [...new Set(data.map((item) => item?.standard_unit).filter(Boolean))]
+  const boxPcs = Array.isArray(productData)
+    ? [...new Set(productData.map((item) => item?.standard_unit).filter(Boolean))]
     : [];
-
-  // const sizes = Array.isArray(data)
-  //   ? [...new Set(data.map((item) => item?.variant).filter(Boolean))]
-  //   : [];  
 
   // 1. Move static order array outside the component to avoid re-creating on every render
   

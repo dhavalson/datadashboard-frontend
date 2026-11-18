@@ -17,7 +17,7 @@ import DistributorMaster from './components/distributorMaster/distribuotrMaster'
 import OrderFormAll from './components/PrimaryOrders/orderFormAll';
 // import PaymentMaster from './components/Payment/payment';
 import ProductMaster from './components/ProductMaster/productMaster';
-import PrimaryOrdersMaster from './components/PrimaryOrders/primaryOrdersMaster';
+import PrimaryOrderDetails from './components/PrimaryOrders/primaryOrderDetails';
 import PrimaryOrdersSummary from './components/PrimaryOrders/primaryOrdersSummary';
 import OrderFormCategoryWise from './components/PrimaryOrders/orderFormCategoryWise';
 import OrderFormBoxPcsWise from './components/PrimaryOrders/orderFormBoxPcsWise';
@@ -116,7 +116,7 @@ useEffect(() => {
             <Route path="/primaryorders/standardunitwise" element={<OrderFormBoxPcsWise />} />
             <Route path="/primaryorders/create" element={<OrderFormAll />} />
             <Route path="/primaryorders/summary" element={<PrimaryOrdersSummary />} />
-            <Route path="/primaryorders/all" element={<PrimaryOrdersMaster />} />
+            <Route path="/primaryorders/all" element={<PrimaryOrderDetails />} />
 
             {/* Distributor Master */}
             <Route path="/distributormaster/all" element={<DistributorMaster />} />

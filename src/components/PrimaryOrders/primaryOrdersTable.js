@@ -54,6 +54,7 @@ const SUMMARY_COLUMNS = [
 const PrimaryOrdersSummaryTable = ({ data = [], columns = SUMMARY_COLUMNS }) => {
   // Store filter values dynamically for each column key
   const [filters, setFilters] = useState({});
+  const [selectedRow, setSelectedRow] = useState(null);
 
   const safeData = Array.isArray(data) ? data : [];
   const safeColumns = Array.isArray(columns) ? columns : [];
@@ -141,48 +142,59 @@ const PrimaryOrdersSummaryTable = ({ data = [], columns = SUMMARY_COLUMNS }) => 
 
         <tbody>
           {filteredData.length > 0 ? (
-            filteredData.map((row, rowIndex) => (
-              // <tr key={row.order_no || rowIndex}>
-              <tr key={row.id || rowIndex}>
-                {safeColumns.map((col) => {
-                  const key = col.key ? col.key.toLowerCase() : '';
-                  const rawCellVal = row[col.key];
+            filteredData.map((row, rowIndex) => {
+              const isSelected = selectedRow === row.order_no;
 
-                  const isDateCol = col.isDate || key.includes('date') || key.endsWith('_at');
-                  const isCurrencyCol = col.isCurrency || key.includes('amount') || key.includes('total_value');
-                  const isNumericCol = col.isNumeric || isCurrencyCol || key.includes('qty');
+              return (
+                <tr
+                  key={row.id || rowIndex}
+                  onClick={() => setSelectedRow(isSelected? null : row.order_no)}
+                  style={{
+                    backgroundColor: isSelected ? '#b0c4de' : '#ffffff', // Highlight color when selected
+                    cursor: 'pointer',
+                    transition: 'background-color 0.15s ease'
+                  }}
+                >
+                  {safeColumns.map((col) => {
+                    const key = col.key ? col.key.toLowerCase() : '';
+                    const rawCellVal = row[col.key];
 
-                  let cellValue;
+                    const isDateCol = col.isDate || key.includes('date') || key.endsWith('_at');
+                    const isCurrencyCol = col.isCurrency || key.includes('amount') || key.includes('total_value');
+                    const isNumericCol = col.isNumeric || isCurrencyCol || key.includes('qty');
 
-                  if (col.render) {
-                    cellValue = col.render(row);
-                  } else if (col.format) {
-                    cellValue = col.format(rawCellVal);
-                  } else if (isDateCol) {
-                    cellValue = formatToDDMMYYYY(rawCellVal);
-                  } else if (isCurrencyCol && rawCellVal !== null && rawCellVal !== 'NULL') {
-                    cellValue = formatCurrency(rawCellVal);
-                  } else {
-                    cellValue = (rawCellVal === null || rawCellVal === undefined || rawCellVal === 'NULL') ? '-' : String(rawCellVal);
-                  }
+                    let cellValue;
 
-                  return (
-                    <td
-                      key={col.key}
-                      style={{
-                        whiteSpace: 'nowrap',
-                        textAlign: isNumericCol ? 'right' : 'left',
-                        fontSize: '14px',
-                        color: '#1e293b',
-                        padding: '8px 10px'
-                      }}
-                    >
-                      {cellValue}
-                    </td>
-                  );
-                })}
-              </tr>
-            ))
+                    if (col.render) {
+                      cellValue = col.render(row);
+                    } else if (col.format) {
+                      cellValue = col.format(rawCellVal);
+                    } else if (isDateCol) {
+                      cellValue = formatToDDMMYYYY(rawCellVal);
+                    } else if (isCurrencyCol && rawCellVal !== null && rawCellVal !== 'NULL') {
+                      cellValue = formatCurrency(rawCellVal);
+                    } else {
+                      cellValue = (rawCellVal === null || rawCellVal === undefined || rawCellVal === 'NULL') ? '-' : String(rawCellVal);
+                    }
+
+                    return (
+                      <td
+                        key={col.key}
+                        style={{
+                          whiteSpace: 'nowrap',
+                          textAlign: isNumericCol ? 'right' : 'left',
+                          fontSize: '14px',
+                          color: '#1e293b',
+                          padding: '8px 10px'
+                        }}
+                      >
+                        {cellValue}
+                      </td>
+                    );
+                  })}
+                </tr>
+              );
+            })
           ) : (
             <tr>
               <td colSpan={safeColumns.length || 1} style={{ textAlign: 'center', padding: '24px', color: '#64748b' }}>

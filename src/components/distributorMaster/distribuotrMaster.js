@@ -80,7 +80,7 @@ const generateAllColumns = (data) => {
 const DistributorMaster = () => {
   const dispatch = useDispatch();
 
-  const { data = [], loading, error } = useSelector((state) => state.distributor || {});
+  const { distributorData = [], distributorLoading, distributorError } = useSelector((state) => state.distributor || {});
   // console.log(data);
   
   const { user } = useSelector((state) => state.auth || {});
@@ -206,10 +206,10 @@ const DistributorMaster = () => {
     }
   };
 
-  if (loading) return <p>Loading distributor details...</p>;
-  if (error) return <p style={{ color: 'red' }}>{error}</p>;
+  if (distributorLoading) return <p>Loading distributor details...</p>;
+  if (distributorError) return <p style={{ color: 'red' }}>{distributorError}</p>;
 
-  const baseColumns = generateAllColumns(data);
+  const baseColumns = generateAllColumns(distributorData);
   const actionColumn = {
     key: 'actions',
     label: 'Actions',
@@ -263,9 +263,9 @@ const DistributorMaster = () => {
       </div>
 
       <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', marginBottom: '90px' }}>
-        <DistributorTable data={data} columns={allColumns} />
+        <DistributorTable data={distributorData} columns={allColumns} />
         <p style={{ padding: '0', margin: '0', fontFamily: 'Calibri', fontWeight: 'bold', textAlign: 'center' }}>
-          Total Results: {data.length}
+          Total Results: {distributorData.length}
         </p>
 
         {/* CRUD Modal */}

@@ -28,31 +28,31 @@ export const fetchDistributorDetails = createAsyncThunk(
 const distributorSlice = createSlice({
   name: 'distributor',
   initialState: {
-    data: [],
-    loading: false,
-    error: null,
+    ditributorData: [],
+    distributorLoading: false,
+    distributorError: null,
   },
   reducers: {
     // 1. Action to clear data on logout or account switch
     clearRSSData: (state) => {
-      state.data = [];
-      state.loading = false;
-      state.error = null;
+      state.distributorData = [];
+      state.distributorLoading = false;
+      state.distributorError = null;
     },
   },
   extraReducers: (builder) => {
     builder
       .addCase(fetchDistributorDetails.pending, (state) => {
-        state.loading = true;
-        state.error = null;
+        state.distributorLoading = true;
+        state.distributorError = null;
       })
       .addCase(fetchDistributorDetails.fulfilled, (state, action) => {
-        state.loading = false;
-        state.data = action.payload;
+        state.distributorLoading = false;
+        state.distributorData = action.payload;
       })
       .addCase(fetchDistributorDetails.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload;
+        state.distributorLoading = false;
+        state.distributorError = action.payload;
       });
   },
 });

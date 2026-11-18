@@ -10,7 +10,7 @@ export default function OrderFormAll() {
   const dispatch = useDispatch();
 
   const { user } = useSelector((state) => state.auth || {});
-  const { data = [], loading, error } = useSelector((state) => state.product || {});
+  const { productData = [], productLoading, productError } = useSelector((state) => state.product || {});
   const [DISTRIBUTORS = [], DISTRI_ALLOWED_GROUP = {}, loadingD] = FetchDistributor();
   const DISTRIBUTORS_ACTIVE = DISTRIBUTORS.filter(item => item.status == 'Active')
   // console.log(DISTRIBUTORS_a);  
@@ -18,10 +18,10 @@ export default function OrderFormAll() {
   const [selectedDistributor, setSelectedDistributor] = useState(null);
 
   const activeProducts = useMemo(() => {
-  return data.filter((product) => 
+  return productData.filter((product) => 
     String(product?.status || '').trim().toLowerCase() === 'active'
   );
-}, [data]);
+}, [productData]);
 
 
   // Master custom sort SIZES order map
@@ -93,7 +93,7 @@ export default function OrderFormAll() {
   const distributorName = selectedDistributor?.distributor_name || '';
   const allowedGroupsForCurrentDist = DISTRI_ALLOWED_GROUP[distributorName] || [];
 
-  if (loading || loadingD) {
+  if (productLoading || loadingD) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 text-xs font-mono text-gray-500">
         Loading Master Inventory Grid Matrix...
@@ -101,10 +101,10 @@ export default function OrderFormAll() {
     );
   }
 
-  if (error) {
+  if (productError) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 text-xs font-mono text-red-500 font-bold p-6 text-center">
-        {error}
+        {productError}
       </div>
     );
   }

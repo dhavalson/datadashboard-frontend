@@ -5,7 +5,7 @@ import api from '../api'
 // Async thunk to fetch transport records from Express backend
 export const fetchProductDetails = createAsyncThunk(
   'productmaster/fetchProductDetails',
-  async (_, { rejectWithValue }) => {
+  async (searchParams, { rejectWithValue }) => {
     try {
       // 1. Get token from Redux state OR fallback directly to sessionStorage
       // const token = getState().auth.token || sessionStorage.getItem('token');
@@ -15,9 +15,16 @@ export const fetchProductDetails = createAsyncThunk(
       // }
 
       // const response = await axios.get('http://localhost:5000/api/products/productmaster', {
-      const response = await api.get('/products/productmaster', {
+      // Safely build the query string if searchParams exists and has keys
+      const params = searchParams ? new URLSearchParams(searchParams).toString() : '';
+      const url = `/products/productmaster${params ? `?${params}` : ''}`;
+
+      const response = await api.get(url, {
         withCredentials: true // Sends cookie automatically
       });
+      // const response = await api.get(`/products/productmaster?${searchParams.toString()}`, {
+      //   withCredentials: true // Sends cookie automatically
+      // });
       
       return response.data;
     } catch (err) {
@@ -29,32 +36,31 @@ export const fetchProductDetails = createAsyncThunk(
 const productSlice = createSlice({
   name: 'product',
   initialState: {
-    data: [],
-    loading: false,
-    error: null,
+    productData: [],
+    productLoading: false,
+    productError: null,
   },
   reducers: {
     // 1. Action to clear data on logout or account switch
     clearProductData: (state) => {
-      state.data = [];
-      state.loading = false;
-      state.error = null;
+      state.productData = [];
+      state.productLoading = false;
+      state.productError = null;
     },
   },
   extraReducers: (builder) => {
     builder
       .addCase(fetchProductDetails.pending, (state) => {
-        state.loading = true;
-        state.error = null;
+        state.productLoading = true;
+        state.productError = null;
       })
       .addCase(fetchProductDetails.fulfilled, (state, action) => {
-        state.loading = false;
-        // state.data = action.payload;
-        state.data = action.payload?.data || action.payload || [];
+        state.productLoading = false;
+        state.productData = action.payload?.data || action.payload || [];
       })
       .addCase(fetchProductDetails.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload;
+        state.productLoading = false;
+        state.productError = action.payload;
       });
   },
 });
