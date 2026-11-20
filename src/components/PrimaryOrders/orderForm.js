@@ -113,11 +113,11 @@ export default function OrderForm({
   }, [INITIAL_PRODUCTS, selectedDistributor]);
 
   // Automatically select the first distributor ONLY once when DISTRIBUTORS loads
-  useEffect(() => {
-    if (DISTRIBUTORS?.length > 0 && !selectedDistributor) {
-      setSelectedDistributor(DISTRIBUTORS[0]);
-    }
-  }, [DISTRIBUTORS?.length, selectedDistributor]);
+  // useEffect(() => {
+  //   if (DISTRIBUTORS?.length > 0 && !selectedDistributor) {
+  //     setSelectedDistributor(DISTRIBUTORS[0]);
+  //   }
+  // }, [DISTRIBUTORS?.length, selectedDistributor]);
 
   // Initialize Quantities ONLY when INITIAL_PRODUCTS length changes
   useEffect(() => {
@@ -293,7 +293,7 @@ export default function OrderForm({
 
     activeOrderItems.forEach((product) => {
       // console.log(product);
-      
+
       SIZES.forEach((size) => {
         const variantKey = product.sizeIdMap[size];
         const qtyValue = Number(quantities[variantKey]) || 0;
@@ -370,7 +370,7 @@ export default function OrderForm({
       'Total Value': item.total_value
     }));
     // console.log(payload);
-    
+
 
     const worksheetItems = XLSX.utils.json_to_sheet(exportRows);
     XLSX.utils.book_append_sheet(workbook, worksheetItems, 'Primary Orders');
@@ -413,10 +413,14 @@ export default function OrderForm({
         withCredentials: true
       });
 
+
       if (response.data.success) {
         runExcelExportEngine(payload);
         alert(`Success: ${response.data.message || 'Order saved successfully!'}`);
-        setOrderCounter((prev) => prev + 1);
+
+        // Fetch the fresh sequence counter from the backend instead of guessing locally
+        await dispatch(fetchNextSequence());
+        // setOrderCounter((prev) => prev + 1);
         setIsPreviewOpen(false);
 
         const resetQty = {};
@@ -438,12 +442,22 @@ export default function OrderForm({
       );
     } finally {
       setIsSaving(false); // 👈 Re-enable button after request completes (success or error)
+      setSelectedDistributor(null)
     }
   };
 
   return (
-    <div style={styles.outerWrapper}>
-      <div style={styles.cardContainer}>
+    <div style={{ ...styles.outerWrapper, position: 'relative' }}>
+      <div
+        style={{
+          ...styles.cardContainer,
+          opacity: isSaving ? 0.65 : 1,
+          pointerEvents: isSaving ? 'none' : 'auto',
+          userSelect: isSaving ? 'none' : 'auto',
+          transition: 'opacity 0.2s ease',
+        }}
+        aria-busy={isSaving}
+      >
         {/* DISTRIBUTOR METADATA HEADER GRID */}
         <div style={styles.headerGrid}>
           <div style={styles.headerColLeft}>
@@ -452,6 +466,7 @@ export default function OrderForm({
             </label>
             <select
               style={styles.distributorSelect}
+              disabled={isSaving}
               value={selectedDistributor?.distributor_name || ''}
               onChange={(e) =>
                 setSelectedDistributor(
@@ -519,12 +534,12 @@ export default function OrderForm({
             <thead>
               <tr style={styles.thStickyRow1}>
                 <td colSpan={5} style={{ padding: '8px 12px', borderRight: '1px solid #d1d5db', textAlign: 'left' }}>
-                  InnerWear Inventory Distribution Matrix
+                  Products to place order
                 </td>
                 <td colSpan={SIZES.length} style={{ borderRight: '1px solid #d1d5db' }}>
                   SIZE VARIANT
                 </td>
-                <td colSpan={2} style={{ backgroundColor: '#78BFA2' }}>
+                <td colSpan={2} >
                   Calculated Fields
                 </td>
               </tr>
@@ -539,8 +554,8 @@ export default function OrderForm({
                     {s}
                   </th>
                 ))}
-                <th style={{ padding: '4px', width: '64px', backgroundColor: '#A2DEC3', color: '#111827', fontSize: '14px', borderRight: '1px solid #d1d5db' }}>Total</th>
-                <th style={{ padding: '4px', width: '96px', backgroundColor: '#89CFA0', color: '#111827', fontSize: '14px' }}>Amount</th>
+                <th style={{ padding: '4px', width: '64px', backgroundColor: '#C8E7D3', color: '#111827', fontSize: '14px', borderRight: '1px solid #d1d5db' }}>Qty</th>
+                <th style={{ padding: '4px', width: '96px', backgroundColor: '#C8E7D3', color: '#111827', fontSize: '14px' }}>Amount</th>
               </tr>
 
               {/* Dynamic Search Filters */}
@@ -551,6 +566,7 @@ export default function OrderForm({
                     type="text"
                     placeholder="Filter Secondary..."
                     style={styles.filterInput}
+                    disabled={isSaving}
                     value={filters.secondary_category || ''}
                     onChange={(e) => setFilters((p) => ({ ...p, secondary_category: e.target.value }))}
                   />
@@ -560,6 +576,7 @@ export default function OrderForm({
                     type="text"
                     placeholder="Filter Display Category..."
                     style={styles.filterInput}
+                    disabled={isSaving}
                     value={filters.display_category || ''}
                     onChange={(e) => setFilters((p) => ({ ...p, display_category: e.target.value }))}
                   />
@@ -569,6 +586,7 @@ export default function OrderForm({
                     type="text"
                     placeholder="Filter standard_unit..."
                     style={styles.filterInput}
+                    disabled={isSaving}
                     value={filters.standard_unit || ''}
                     onChange={(e) => setFilters((p) => ({ ...p, standard_unit: e.target.value }))}
                   />
@@ -618,8 +636,13 @@ export default function OrderForm({
                               type="text"
                               inputMode="numeric"
                               style={styles.qtyInput}
+                              disabled={isSaving}
+                              readOnly={isSaving}
                               value={quantities[targetVariantKey] ?? ''}
-                              onChange={(e) => handleQtyChange(targetVariantKey, e.target.value)}
+                              onChange={(e) => {
+                                if (isSaving) return;
+                                handleQtyChange(targetVariantKey, e.target.value);
+                              }}
                             />
                           </td>
                         );
@@ -640,10 +663,20 @@ export default function OrderForm({
 
         {/* FIXED ACTION PANEL */}
         <div style={styles.actionPanel}>
-          <button onClick={() => setIsPreviewOpen(true)} style={styles.btnPreview}>
+          <button
+            type="button"
+            onClick={() => setIsPreviewOpen(true)}
+            disabled={isSaving}
+            style={{
+              ...styles.btnPreview,
+              cursor: isSaving ? 'not-allowed' : 'pointer',
+              opacity: isSaving ? 0.6 : 1,
+            }}
+          >
             Preview Order
           </button>
           <button
+            type="button"
             onClick={handleSaveOrder}
             disabled={isSaving}
             onMouseEnter={() => setIsHovered(true)}
@@ -651,12 +684,12 @@ export default function OrderForm({
             style={{
               ...styles.btnSave,
               backgroundColor: isSaving
-                ? '#9ca3af' // Greyed out when saving
+                ? '#9ca3af'
                 : isHovered
-                  ? '#047857' // Darker emerald shade on hover
-                  : styles.btnSave.backgroundColor,
+                  ? '#047857'
+                  : styles?.btnSave?.backgroundColor || '#059669',
               cursor: isSaving ? 'not-allowed' : 'pointer',
-              opacity: isSaving ? 0.7 : 1
+              opacity: isSaving ? 0.7 : 1,
             }}
           >
             {isSaving ? 'Saving Order...' : 'Save Order'}
@@ -674,7 +707,14 @@ export default function OrderForm({
                 <h3 style={{ fontSize: '18px', fontWeight: 'bold', margin: 0 }}>Order Review Blueprint</h3>
               </div>
               <div>
-                <button onClick={() => setIsPreviewOpen(false)} style={styles.closeBtn}>✕</button>
+                <button
+                  type="button"
+                  onClick={() => setIsPreviewOpen(false)}
+                  disabled={isSaving}
+                  style={styles.closeBtn}
+                >
+                  ✕
+                </button>
               </div>
             </div>
 
@@ -728,9 +768,99 @@ export default function OrderForm({
 
             {/* Modal Footer */}
             <div style={{ backgroundColor: '#f9fafb', padding: '12px 16px', borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-              <button onClick={() => setIsPreviewOpen(false)} style={{ backgroundColor: '#4b5563', color: '#ffffff', padding: '8px 16px', borderRadius: '4px', border: 'none', cursor: 'pointer' }}>Back</button>
-              <button onClick={handleSaveOrder} style={{ backgroundColor: '#059669', color: '#ffffff', padding: '8px 16px', borderRadius: '4px', border: 'none', cursor: 'pointer' }}>{isSaving ? 'Saving Order...' : 'Save Order'}</button>
+              <button
+                type="button"
+                onClick={() => setIsPreviewOpen(false)}
+                disabled={isSaving}
+                style={{
+                  backgroundColor: '#4b5563',
+                  color: '#ffffff',
+                  padding: '8px 16px',
+                  borderRadius: '4px',
+                  border: 'none',
+                  cursor: isSaving ? 'not-allowed' : 'pointer',
+                  opacity: isSaving ? 0.6 : 1,
+                }}
+              >
+                Back
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveOrder}
+                disabled={isSaving}
+                onMouseEnter={() => setIsHovered(true)}
+                onMouseLeave={() => setIsHovered(false)}
+                style={{
+                  backgroundColor: '#059669',
+                  color: '#ffffff',
+                  padding: '8px 16px',
+                  borderRadius: '4px',
+                  border: 'none',
+                  ...styles?.btnSave,
+                  backgroundColor: isSaving
+                    ? '#9ca3af'
+                    : isHovered
+                      ? '#047857'
+                      : styles?.btnSave?.backgroundColor || '#059669',
+                  cursor: isSaving ? 'not-allowed' : 'pointer',
+                  opacity: isSaving ? 0.7 : 1,
+                }}
+              >
+                {isSaving ? 'Saving Order...' : 'Save Order'}
+              </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* FULL-SCREEN PROCESSING LOCK OVERLAY */}
+      {isSaving && (
+        <div
+          role="alertdialog"
+          aria-modal="true"
+          aria-live="assertive"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 9999,
+            backgroundColor: 'rgba(0, 0, 0, 0.6)',
+            cursor: 'not-allowed',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '10px',
+          }}
+        >
+          <style>{`
+            @keyframes dotPulse {
+              0%, 80%, 100% {
+                transform: scale(0.75);
+                opacity: 0.6;
+              }
+              40% {
+                transform: scale(1.25);
+                opacity: 1;
+              }
+            }
+            .saving-dot {
+              width: 10px;
+              height: 10px;
+              border-radius: 50%;
+              display: inline-block;
+              animation: dotPulse 1.2s infinite ease-in-out;
+            }
+          `}</style>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span className="saving-dot" style={{ backgroundColor: '#f59e0b', animationDelay: '0s' }} />
+            <span className="saving-dot" style={{ backgroundColor: '#eab308', animationDelay: '0.15s' }} />
+            <span className="saving-dot" style={{ backgroundColor: '#3b82f6', animationDelay: '0.3s' }} />
+            <span className="saving-dot" style={{ backgroundColor: '#2563eb', animationDelay: '0.45s' }} />
+          </div>
+
+          <div style={{ color: '#ffffff', fontSize: '13px', fontWeight: 500, letterSpacing: '0.2px' }}>
+            Processing order...
           </div>
         </div>
       )}
